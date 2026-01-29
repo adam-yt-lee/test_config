@@ -7,6 +7,152 @@
     <style>
         .conflict { @apply border-red-500 bg-red-50; }
         .valid { @apply border-green-500 bg-green-50; }
+
+        /* Filter Styles - 直列顯示 */
+        .filter-option-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .product-filter-category {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .product-category-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background-color: #f8fafc;
+            cursor: pointer;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .product-category-title:hover {
+            background-color: #f1f5f9;
+        }
+
+        .product-category-name {
+            font-size: 14px;
+        }
+
+        .filter-icon {
+            width: 16px;
+            height: 16px;
+            fill: #64748b;
+            transition: transform 0.3s ease;
+        }
+
+        .filter-icon.rotate {
+            transform: rotate(180deg);
+        }
+
+        .product-sub-menu {
+            display: none;
+            flex-direction: column;
+            padding: 8px 0;
+            margin: 0;
+            list-style: none;
+            background-color: #fff;
+        }
+
+        .product-sub-menu.active {
+            display: flex;
+        }
+
+        .product-sub-menu.hide {
+            display: none;
+        }
+
+        .product-filter-item {
+            padding: 4px 16px;
+        }
+
+        .gbt-checkbox-wrapper {
+            display: block;
+        }
+
+        .gbt-main-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #475569;
+        }
+
+        .gbt-main-checkbox-label:hover {
+            color: #1e293b;
+        }
+
+        .gbt-main-checkbox-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
+            background-color: #fff;
+            transition: all 0.2s ease;
+        }
+
+        .gbt-main-checkbox {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .gbt-main-checkbox:checked + .gbt-main-checkbox-check {
+            display: block;
+        }
+
+        .gbt-main-checkbox:checked ~ .gbt-main-checkbox-container,
+        .gbt-main-checkbox-container:has(.gbt-main-checkbox:checked) {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .gbt-main-checkbox-check {
+            display: none;
+            pointer-events: none;
+        }
+
+        .gbt-main-checkbox-label-text {
+            flex: 1;
+        }
+
+        .show-more-btn {
+            display: none;
+            width: 100%;
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            color: #3b82f6;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .show-more-btn:hover {
+            background-color: #f8fafc;
+        }
+
+        .filter-category-active .product-category-title {
+            background-color: #e0f2fe;
+        }
+
+        .filter-category-active .filter-icon {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body class="bg-slate-100 p-6">
@@ -16,37 +162,290 @@
             <p class="text-slate-400 text-sm">多層屬性連動驗證系統 (Barebone > CPU > RAM)</p>
         </div>
 
-        <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="space-y-3">
-                <label class="font-bold text-slate-700">1. Barebone (Chassis)</label>
-                <select id="barebone-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
-                    <option value="">選擇準系統</option>
-                </select>
-                <div id="barebone-info" class="text-xs space-y-1 text-slate-500"></div>
+        <div class="p-8 flex flex-col md:flex-row gap-8">
+            <!-- 左側篩選器 - 直列顯示 -->
+            <div class="w-full md:w-80 flex-shrink-0">
+                <h3 class="font-bold text-slate-700 mb-4">篩選條件</h3>
+                <div class="filter-option-container">
+                    <!-- Platform Filter -->
+                    <div class="product-filter-category">
+                        <div class="product-category-title" onclick="toggleFilter(this)">
+                            <span class="product-category-name">Platform</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="filter-icon">
+                                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+                            </svg>
+                        </div>
+                        <ul class="product-sub-menu">
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="platform" value="x86" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">x86 Server</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="platform" value="arm" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">ARM Server</span>
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Cooling Type Filter -->
+                    <div class="product-filter-category">
+                        <div class="product-category-title" onclick="toggleFilter(this)">
+                            <span class="product-category-name">Cooling Type</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="filter-icon">
+                                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+                            </svg>
+                        </div>
+                        <ul class="product-sub-menu">
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="cooling" value="air" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">Air Cooling</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="cooling" value="liquid" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">Direct Liquid Cooling</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="cooling" value="immersion" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">Immersion Cooling</span>
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Processor Vendor Filter -->
+                    <div class="product-filter-category">
+                        <div class="product-category-title" onclick="toggleFilter(this)">
+                            <span class="product-category-name">Processor Vendor</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="filter-icon">
+                                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+                            </svg>
+                        </div>
+                        <ul class="product-sub-menu">
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="vendor" value="amd" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">AMD</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="vendor" value="ampere" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">Ampere</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="vendor" value="intel" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">Intel</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="vendor" value="nvidia" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">NVIDIA</span>
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Form Factor Filter -->
+                    <div class="product-filter-category">
+                        <div class="product-category-title" onclick="toggleFilter(this)">
+                            <span class="product-category-name">Form Factor</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="filter-icon">
+                                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+                            </svg>
+                        </div>
+                        <ul class="product-sub-menu">
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="formfactor" value="1u" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">1U</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="formfactor" value="2u" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">2U</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="formfactor" value="4u" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">4U</span>
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- RAM Type Filter -->
+                    <div class="product-filter-category">
+                        <div class="product-category-title" onclick="toggleFilter(this)">
+                            <span class="product-category-name">RAM Type</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="filter-icon">
+                                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+                            </svg>
+                        </div>
+                        <ul class="product-sub-menu">
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="ramtype" value="ddr4" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">DDR4</span>
+                                    </label>
+                                </div>
+                            </li>
+                            <li class="product-filter-item">
+                                <div class="gbt-checkbox-wrapper">
+                                    <label class="gbt-main-checkbox-label">
+                                        <div class="gbt-main-checkbox-container">
+                                            <input type="checkbox" class="gbt-main-checkbox" name="ramtype" value="ddr5" onchange="updateFilters()">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" class="gbt-main-checkbox-check">
+                                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                        <span class="gbt-main-checkbox-label-text">DDR5</span>
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
 
-            <div class="space-y-3">
-                <label class="font-bold text-slate-700">2. CPU (Processor)</label>
-                <select id="cpu-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
-                    <option value="">選擇 CPU</option>
-                </select>
-                <div id="cpu-info" class="text-xs space-y-1 text-slate-500"></div>
-            </div>
+            <!-- 右側配置選擇器 -->
+            <div class="flex-1">
+                <div class="grid grid-cols-1 gap-6">
+                    <div class="space-y-3">
+                        <label class="font-bold text-slate-700">1. Barebone (Chassis)</label>
+                        <select id="barebone-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
+                            <option value="">選擇準系統</option>
+                        </select>
+                        <div id="barebone-info" class="text-xs space-y-1 text-slate-500"></div>
+                    </div>
 
-            <div class="space-y-3">
-                <label class="font-bold text-slate-700">3. RAM (Memory)</label>
-                <select id="ram-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
-                    <option value="">選擇記憶體</option>
-                </select>
-                <div id="ram-info" class="text-xs space-y-1 text-slate-500"></div>
-            </div>
-        </div>
+                    <div class="space-y-3">
+                        <label class="font-bold text-slate-700">2. CPU (Processor)</label>
+                        <select id="cpu-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
+                            <option value="">選擇 CPU</option>
+                        </select>
+                        <div id="cpu-info" class="text-xs space-y-1 text-slate-500"></div>
+                    </div>
 
-        <div id="msg-panel" class="mx-8 mb-8 p-4 rounded-xl border flex items-start gap-3 hidden">
-            <div id="msg-icon" class="mt-1"></div>
-            <div>
-                <h4 id="msg-title" class="font-bold"></h4>
-                <p id="msg-body" class="text-sm"></p>
+                    <div class="space-y-3">
+                        <label class="font-bold text-slate-700">3. RAM (Memory)</label>
+                        <select id="ram-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
+                            <option value="">選擇記憶體</option>
+                        </select>
+                        <div id="ram-info" class="text-xs space-y-1 text-slate-500"></div>
+                    </div>
+                </div>
+
+                <div id="msg-panel" class="mt-6 p-4 rounded-xl border flex items-start gap-3 hidden">
+                    <div id="msg-icon" class="mt-1"></div>
+                    <div>
+                        <h4 id="msg-title" class="font-bold"></h4>
+                        <p id="msg-body" class="text-sm"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -66,6 +465,35 @@ const data = {
         { id: "R2", name: "64GB DDR5-4800", ram_tech: "DDR5", voltage: "1.1V" }
     ]
 };
+
+// 篩選器展開/收合功能
+function toggleFilter(titleElement) {
+    const category = titleElement.parentElement;
+    const subMenu = category.querySelector('.product-sub-menu');
+    const icon = titleElement.querySelector('.filter-icon');
+
+    // 切換 active 狀態
+    category.classList.toggle('filter-category-active');
+    subMenu.classList.toggle('active');
+    icon.classList.toggle('rotate');
+}
+
+// 更新篩選器狀態
+function updateFilters() {
+    const checkedFilters = {};
+
+    // 收集所有選中的篩選器
+    document.querySelectorAll('.gbt-main-checkbox:checked').forEach(checkbox => {
+        const name = checkbox.name;
+        if (!checkedFilters[name]) {
+            checkedFilters[name] = [];
+        }
+        checkedFilters[name].push(checkbox.value);
+    });
+
+    console.log('已選擇的篩選條件:', checkedFilters);
+    // 這裡可以根據篩選條件來過濾下拉選單的選項
+}
 
 // 初始化下拉選單
 function init() {
@@ -120,11 +548,11 @@ function validate(b, c, r) {
     }
 
     if (errors.length > 0) {
-        panel.className = "mx-8 mb-8 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 flex items-start gap-3";
+        panel.className = "mt-6 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 flex items-start gap-3";
         title.innerText = "發現配置衝突";
         body.innerHTML = errors.join('<br>');
     } else if (b && c && r) {
-        panel.className = "mx-8 mb-8 p-4 rounded-xl border bg-green-50 border-green-200 text-green-800 flex items-start gap-3";
+        panel.className = "mt-6 p-4 rounded-xl border bg-green-50 border-green-200 text-green-800 flex items-start gap-3";
         title.innerText = "配置有效";
         body.innerText = "所有選取組件均相容。";
     } else {
