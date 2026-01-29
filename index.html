@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Server Multi-Layer Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .conflict { @apply border-red-500 bg-red-50; }
+        .valid { @apply border-green-500 bg-green-50; }
+    </style>
+</head>
+<body class="bg-slate-100 p-6">
+    <div class="max-w-5xl mx-auto bg-white shadow-2xl rounded-2xl overflow-hidden">
+        <div class="bg-slate-800 p-6 text-white">
+            <h1 class="text-2xl font-bold">Advanced Server Configurator</h1>
+            <p class="text-slate-400 text-sm">多層屬性連動驗證系統 (Barebone > CPU > RAM)</p>
+        </div>
+
+        <div class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="space-y-3">
+                <label class="font-bold text-slate-700">1. Barebone (Chassis)</label>
+                <select id="barebone-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
+                    <option value="">選擇準系統</option>
+                </select>
+                <div id="barebone-info" class="text-xs space-y-1 text-slate-500"></div>
+            </div>
+
+            <div class="space-y-3">
+                <label class="font-bold text-slate-700">2. CPU (Processor)</label>
+                <select id="cpu-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
+                    <option value="">選擇 CPU</option>
+                </select>
+                <div id="cpu-info" class="text-xs space-y-1 text-slate-500"></div>
+            </div>
+
+            <div class="space-y-3">
+                <label class="font-bold text-slate-700">3. RAM (Memory)</label>
+                <select id="ram-select" onchange="updateUI()" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2">
+                    <option value="">選擇記憶體</option>
+                </select>
+                <div id="ram-info" class="text-xs space-y-1 text-slate-500"></div>
+            </div>
+        </div>
+
+        <div id="msg-panel" class="mx-8 mb-8 p-4 rounded-xl border flex items-start gap-3 hidden">
+            <div id="msg-icon" class="mt-1"></div>
+            <div>
+                <h4 id="msg-title" class="font-bold"></h4>
+                <p id="msg-body" class="text-sm"></p>
+            </div>
+        </div>
+    </div>
+
+<script>
+const data = {
+    barebones: [
+        { id: "B1", name: "Intel 2U Rack", socket: "LGA4189", max_dimms: 16, psu: "800W" },
+        { id: "B2", name: "AMD Genoa 1U", socket: "SP5", max_dimms: 24, psu: "1200W" }
+    ],
+    cpus: [
+        { id: "C1", name: "Xeon 4314", socket: "LGA4189", ram_tech: "DDR4", tdp: "135W" },
+        { id: "C2", name: "EPYC 9354", socket: "SP5", ram_tech: "DDR5", tdp: "280W" }
+    ],
+    rams: [
+        { id: "R1", name: "32GB DDR4-3200", ram_tech: "DDR4", voltage: "1.2V" },
+        { id: "R2", name: "64GB DDR5-4800", ram_tech: "DDR5", voltage: "1.1V" }
+    ]
+};
+
+// 初始化下拉選單
+function init() {
+    fillSelect('barebone-select', data.barebones);
+    fillSelect('cpu-select', data.cpus);
+    fillSelect('ram-select', data.rams);
+}
+
+function fillSelect(id, items) {
+    const el = document.getElementById(id);
+    items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.text = item.name;
+        el.add(opt);
+    });
+}
+
+function updateUI() {
+    const b = data.barebones.find(x => x.id === document.getElementById('barebone-select').value);
+    const c = data.cpus.find(x => x.id === document.getElementById('cpu-select').value);
+    const r = data.rams.find(x => x.id === document.getElementById('ram-select').value);
+
+    // 更新各項目的屬性資訊
+    renderInfo('barebone-info', b ? [`Socket: ${b.socket}`, `Max DIMMs: ${b.max_dimms}`, `PSU: ${b.psu}`] : []);
+    renderInfo('cpu-info', c ? [`Socket: ${c.socket}`, `RAM: ${c.ram_tech}`, `TDP: ${c.tdp}`] : []);
+    renderInfo('ram-info', r ? [`Type: ${r.ram_tech}`, `Voltage: ${r.voltage}`] : []);
+
+    validate(b, c, r);
+}
+
+function renderInfo(id, info) {
+    document.getElementById(id).innerHTML = info.map(i => `<div>• ${i}</div>`).join('');
+}
+
+function validate(b, c, r) {
+    const panel = document.getElementById('msg-panel');
+    const title = document.getElementById('msg-title');
+    const body = document.getElementById('msg-body');
+    panel.classList.remove('hidden');
+
+    let errors = [];
+
+    // 1. Barebone vs CPU (Socket Check)
+    if (b && c && b.socket !== c.socket) {
+        errors.push(`插槽不相容: ${b.name} 需要 ${b.socket}，但選擇了 ${c.socket} 的 CPU。`);
+    }
+
+    // 2. CPU vs RAM (Tech Check)
+    if (c && r && c.ram_tech !== r.ram_tech) {
+        errors.push(`記憶體技術錯誤: ${c.name} 僅支援 ${c.ram_tech}，與所選 ${r.ram_tech} 衝突。`);
+    }
+
+    if (errors.length > 0) {
+        panel.className = "mx-8 mb-8 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 flex items-start gap-3";
+        title.innerText = "發現配置衝突";
+        body.innerHTML = errors.join('<br>');
+    } else if (b && c && r) {
+        panel.className = "mx-8 mb-8 p-4 rounded-xl border bg-green-50 border-green-200 text-green-800 flex items-start gap-3";
+        title.innerText = "配置有效";
+        body.innerText = "所有選取組件均相容。";
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+init();
+</script>
+</body>
+</html>
