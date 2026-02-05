@@ -1,0 +1,501 @@
+/* ============================================
+   Server Configurator - Filter Styles
+   ============================================ */
+
+/* Layout */
+.configurator-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.configurator-header {
+    background-color: #1e293b;
+    padding: 24px;
+    color: #fff;
+}
+
+.configurator-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.configurator-header p {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    margin: 4px 0 0 0;
+}
+
+/* Two-column body: filter left, results right */
+.configurator-body {
+    display: flex;
+    gap: 0;
+    min-height: 600px;
+}
+
+/* Left: Filter Panel */
+.filter-panel {
+    width: 340px;
+    min-width: 340px;
+    padding: 20px;
+    border-right: 1px solid #e2e8f0;
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+}
+
+/* Right: Results Panel */
+.results-panel {
+    flex: 1;
+    padding: 20px 24px;
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+    background-color: #f8fafc;
+}
+
+/* Filter Header */
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0 12px 0;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+}
+
+.filter-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.filter-reset-btn {
+    background: none;
+    border: 1px solid #cbd5e1;
+    padding: 6px 16px;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-reset-btn:hover {
+    background-color: #f1f5f9;
+    color: #334155;
+    border-color: #94a3b8;
+}
+
+/* Filter Tags */
+.filter-tags-container {
+    margin-bottom: 12px;
+}
+
+.filter-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border-radius: 16px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.filter-tag:hover {
+    background-color: #bae6fd;
+}
+
+.filter-tag .tag-remove {
+    width: 12px;
+    height: 12px;
+    fill: #0369a1;
+    transition: fill 0.2s ease;
+}
+
+.filter-tag:hover .tag-remove {
+    fill: #0c4a6e;
+}
+
+/* Product Count (in filter panel) */
+.product-count {
+    padding: 8px 0;
+    font-size: 13px;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+}
+
+.product-count strong {
+    color: #1e293b;
+}
+
+/* Filter Option Container */
+.filter-option-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Filter Category */
+.product-filter-category {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.product-category-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background-color: #f8fafc;
+    cursor: pointer;
+    font-weight: 600;
+    color: #334155;
+    user-select: none;
+}
+
+.product-category-title:hover {
+    background-color: #f1f5f9;
+}
+
+.product-category-name {
+    font-size: 13px;
+}
+
+/* Filter Icon */
+.filter-icon {
+    width: 14px;
+    height: 14px;
+    fill: #64748b;
+    transition: transform 0.3s ease;
+}
+
+.filter-icon.rotate {
+    transform: rotate(180deg);
+}
+
+/* Sub Menu */
+.product-sub-menu {
+    display: none;
+    flex-direction: column;
+    padding: 6px 0;
+    margin: 0;
+    list-style: none;
+    background-color: #fff;
+}
+
+.product-sub-menu.active {
+    display: flex;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.product-sub-menu.hide {
+    display: none;
+}
+
+.product-sub-menu::-webkit-scrollbar {
+    width: 4px;
+}
+
+.product-sub-menu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.product-sub-menu::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 2px;
+}
+
+/* Filter Item */
+.product-filter-item {
+    padding: 3px 14px;
+}
+
+/* Checkbox Wrapper */
+.gbt-checkbox-wrapper {
+    display: block;
+}
+
+.gbt-main-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #475569;
+    transition: color 0.2s ease;
+}
+
+.gbt-main-checkbox-label:hover {
+    color: #1e293b;
+}
+
+/* Checkbox Container */
+.gbt-main-checkbox-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border: 2px solid #cbd5e1;
+    border-radius: 3px;
+    background-color: #fff;
+    transition: all 0.2s ease;
+}
+
+.gbt-main-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 1;
+}
+
+/* Checkbox Check Mark */
+.gbt-main-checkbox-check {
+    display: none;
+    pointer-events: none;
+}
+
+.gbt-main-checkbox:checked + .gbt-main-checkbox-check {
+    display: block;
+}
+
+.gbt-main-checkbox:checked ~ .gbt-main-checkbox-container,
+.gbt-main-checkbox-container:has(.gbt-main-checkbox:checked) {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.gbt-main-checkbox-label-text {
+    flex: 1;
+}
+
+/* Disabled State */
+.product-filter-item.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.product-filter-item.disabled .gbt-main-checkbox-label {
+    cursor: not-allowed;
+    color: #94a3b8;
+}
+
+.product-filter-item.disabled .gbt-main-checkbox-container {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+.product-filter-item.disabled .gbt-main-checkbox {
+    cursor: not-allowed;
+}
+
+/* Active Category */
+.filter-category-active .product-category-title {
+    background-color: #e0f2fe;
+}
+
+.filter-category-active .filter-icon {
+    transform: rotate(180deg);
+}
+
+/* Count Badge */
+.filter-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background-color: #3b82f6;
+    color: #fff;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 6px;
+}
+
+/* Option count per item */
+.option-count {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-left: auto;
+    padding-left: 6px;
+    white-space: nowrap;
+}
+
+/* ============================================
+   Results Panel Styles
+   ============================================ */
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.results-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.results-count {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.results-count strong {
+    color: #1e293b;
+}
+
+/* Result Table */
+.results-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+}
+
+.results-table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f1f5f9;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.results-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.results-table tbody tr:hover {
+    background-color: #f0f9ff;
+}
+
+.results-table tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.results-table tbody td:first-child {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* Result badge (inline in table) */
+.result-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: #f1f5f9;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.result-badge.platform {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.result-badge.vendor {
+    background-color: #fce7f3;
+    color: #9d174d;
+}
+
+.result-badge.gpu {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.result-badge.cooling {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.result-badge.form-factor {
+    background-color: #ede9fe;
+    color: #5b21b6;
+}
+
+/* Empty state */
+.results-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+}
+
+.results-empty svg {
+    width: 48px;
+    height: 48px;
+    fill: #cbd5e1;
+    margin-bottom: 12px;
+}
+
+.results-empty p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Loading state */
+.loading-indicator {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 900px) {
+    .configurator-body {
+        flex-direction: column;
+    }
+
+    .filter-panel {
+        width: 100%;
+        min-width: auto;
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+        max-height: none;
+    }
+
+    .results-panel {
+        max-height: none;
+    }
+}

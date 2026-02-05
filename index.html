@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Server Multi-Layer Configurator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="background-color: #f1f5f9; padding: 24px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div class="configurator-wrapper">
+        <div class="configurator-header">
+            <h1>Advanced Server Configurator</h1>
+            <p>Multi-Layer Filter System - Select options to narrow down compatible configurations</p>
+        </div>
+
+        <div class="configurator-body">
+            <!-- Left: Filter Panel -->
+            <div class="filter-panel">
+                <div class="filter-header">
+                    <div class="filter-title">Filter</div>
+                    <button class="filter-reset-btn" onclick="resetAllFilters()" aria-label="Reset filter conditions">Reset</button>
+                </div>
+
+                <div class="filter-tags-container" id="filter-tags-container" style="display: none;">
+                    <div class="filter-tags-list" id="filter-tags-list"></div>
+                </div>
+
+                <div class="product-count" id="product-count">
+                    Showing <strong id="match-count">0</strong> of <strong id="total-count">0</strong> configurations
+                </div>
+
+                <div class="filter-option-container" id="filter-option-container">
+                </div>
+            </div>
+
+            <!-- Right: Results Panel -->
+            <div class="results-panel">
+                <div class="results-header">
+                    <h3>Matching Configurations</h3>
+                    <div class="results-count">
+                        <strong id="results-match-count">0</strong> results
+                    </div>
+                </div>
+                <div id="results-list">
+                    <div class="loading-indicator">Loading data...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ============================================
+// State
+// ============================================
+let products = [];
+let filterCategories = [];
+let selectedFilters = {};
+
+// ============================================
+// CSV Parsing
+// ============================================
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',');
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const row = {};
+        headers.forEach((h, idx) => {
+            row[h.trim()] = (values[idx] || '').trim();
+        });
+        rows.push(row);
+    }
+    return rows;
+}
+
+function parseProductsCSV(text) {
+    const rows = parseCSV(text);
+    return rows.map(row => ({
+        id: row.id,
+        platform: row.platform,
+        cooling: row.cooling,
+        vendor: row.vendor,
+        cpuSeries: row.cpuSeries,
+        formFactor: row.formFactor,
+        gpuType: row.gpuType,
+        gpus: parseInt(row.gpus, 10),
+        dimmSlots: parseInt(row.dimmSlots, 10),
+        lanSpeed: row.lanSpeed,
+        application: row.application ? row.application.split('|') : []
+    }));
+}
+
+function parseFiltersCSV(text) {
+    const rows = parseCSV(text);
+    const categoryMap = new Map();
+
+    rows.forEach(row => {
+        const key = row.category_key;
+        if (!categoryMap.has(key)) {
+            categoryMap.set(key, {
+                key: key,
+                name: row.category_name,
+                options: []
+            });
+        }
+        categoryMap.get(key).options.push({
+            value: row.option_value,
+            label: row.option_label
+        });
+    });
+
+    return Array.from(categoryMap.values());
+}
+
+// ============================================
+// Load CSV files and initialize
+// ============================================
+async function loadData() {
+    const [productsResp, filtersResp] = await Promise.all([
+        fetch('products.csv'),
+        fetch('filters.csv')
+    ]);
+
+    const productsText = await productsResp.text();
+    const filtersText = await filtersResp.text();
+
+    products = parseProductsCSV(productsText);
+    filterCategories = parseFiltersCSV(filtersText);
+
+    init();
+}
+
+// ============================================
+// Initialize UI
+// ============================================
+function init() {
+    document.getElementById('total-count').textContent = products.length;
+    renderFilterCategories();
+    updateFilterState();
+}
+
+// ============================================
+// Render Filter Categories
+// ============================================
+function renderFilterCategories() {
+    const container = document.getElementById('filter-option-container');
+    container.innerHTML = '';
+
+    filterCategories.forEach(category => {
+        const categoryEl = document.createElement('div');
+        categoryEl.className = 'product-filter-category';
+        categoryEl.dataset.filterKey = category.key;
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'product-category-title';
+        titleEl.onclick = function() { toggleFilter(this); };
+        titleEl.innerHTML = `
+            <span class="product-category-name">${category.name}<span class="filter-count-badge" id="badge-${category.key}" style="display:none;">0</span></span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="filter-icon">
+                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+            </svg>
+        `;
+        categoryEl.appendChild(titleEl);
+
+        const subMenu = document.createElement('ul');
+        subMenu.className = 'product-sub-menu';
+        subMenu.dataset.filterKey = category.key;
+
+        category.options.forEach(option => {
+            const li = document.createElement('li');
+            li.className = 'product-filter-item';
+            li.dataset.filterKey = category.key;
+            li.dataset.filterValue = option.value;
+
+            li.innerHTML = `
+                <div class="gbt-checkbox-wrapper">
+                    <label class="gbt-main-checkbox-label" style="gap:8px;">
+                        <div class="gbt-main-checkbox-container">
+                            <input type="checkbox" class="gbt-main-checkbox"
+                                   name="${category.key}"
+                                   value="${option.value}"
+                                   onchange="onFilterChange(this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" fill="none" style="pointer-events:none;" class="gbt-main-checkbox-check">
+                                <path fill="#fff" fill-rule="evenodd" d="M11.218.304a1 1 0 0 1-.022 1.414l-6.187 6a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l2.117 2.052L9.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <span class="gbt-main-checkbox-label-text">${option.label}</span>
+                        <span class="option-count" id="count-${category.key}-${option.value}"></span>
+                    </label>
+                </div>
+            `;
+            subMenu.appendChild(li);
+        });
+
+        categoryEl.appendChild(subMenu);
+        container.appendChild(categoryEl);
+    });
+}
+
+// ============================================
+// Toggle Filter Category
+// ============================================
+function toggleFilter(titleElement) {
+    const category = titleElement.parentElement;
+    const subMenu = category.querySelector('.product-sub-menu');
+    const icon = titleElement.querySelector('.filter-icon');
+
+    category.classList.toggle('filter-category-active');
+    subMenu.classList.toggle('active');
+    icon.classList.toggle('rotate');
+}
+
+// ============================================
+// Handle Filter Change
+// ============================================
+function onFilterChange(checkbox) {
+    const key = checkbox.name;
+    const value = checkbox.value;
+
+    if (!selectedFilters[key]) {
+        selectedFilters[key] = new Set();
+    }
+
+    if (checkbox.checked) {
+        selectedFilters[key].add(value);
+    } else {
+        selectedFilters[key].delete(value);
+        if (selectedFilters[key].size === 0) {
+            delete selectedFilters[key];
+        }
+    }
+
+    updateFilterState();
+}
+
+// ============================================
+// Product matching helpers
+// ============================================
+function productMatchesValue(product, key, value) {
+    const productValue = product[key];
+    if (Array.isArray(productValue)) {
+        return productValue.includes(value);
+    }
+    return String(productValue) === String(value);
+}
+
+function productMatchesFilters(product, filters) {
+    for (const [key, values] of Object.entries(filters)) {
+        if (values.size === 0) continue;
+        const productValue = product[key];
+        let matches = false;
+
+        if (Array.isArray(productValue)) {
+            for (const v of values) {
+                if (productValue.includes(v)) { matches = true; break; }
+            }
+        } else {
+            matches = values.has(String(productValue));
+        }
+
+        if (!matches) return false;
+    }
+    return true;
+}
+
+// ============================================
+// Core: Update All Filter States
+// ============================================
+function updateFilterState() {
+    const activeFilters = {};
+    for (const [key, values] of Object.entries(selectedFilters)) {
+        if (values.size > 0) activeFilters[key] = values;
+    }
+
+    const matchingProducts = products.filter(p => productMatchesFilters(p, activeFilters));
+
+    filterCategories.forEach(category => {
+        const key = category.key;
+        const filtersWithout = {};
+        for (const [k, v] of Object.entries(activeFilters)) {
+            if (k !== key) filtersWithout[k] = v;
+        }
+        const productsForCategory = products.filter(p => productMatchesFilters(p, filtersWithout));
+
+        let selectedCount = 0;
+
+        category.options.forEach(option => {
+            const li = document.querySelector(
+                `.product-filter-item[data-filter-key="${key}"][data-filter-value="${option.value}"]`
+            );
+            if (!li) return;
+
+            const count = productsForCategory.filter(p =>
+                productMatchesValue(p, key, String(option.value))
+            ).length;
+
+            const countEl = document.getElementById(`count-${key}-${option.value}`);
+            if (countEl) countEl.textContent = `(${count})`;
+
+            const checkbox = li.querySelector('.gbt-main-checkbox');
+            const isSelected = selectedFilters[key] && selectedFilters[key].has(String(option.value));
+            if (isSelected) selectedCount++;
+
+            if (count === 0 && !isSelected) {
+                li.classList.add('disabled');
+                checkbox.disabled = true;
+            } else {
+                li.classList.remove('disabled');
+                checkbox.disabled = false;
+            }
+        });
+
+        const badge = document.getElementById(`badge-${key}`);
+        if (badge) {
+            if (selectedCount > 0) {
+                badge.style.display = 'inline-flex';
+                badge.textContent = selectedCount;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    });
+
+    document.getElementById('match-count').textContent = matchingProducts.length;
+    document.getElementById('results-match-count').textContent = matchingProducts.length;
+
+    renderFilterTags();
+    renderResults(matchingProducts);
+}
+
+// ============================================
+// Render Filter Tags
+// ============================================
+function renderFilterTags() {
+    const container = document.getElementById('filter-tags-container');
+    const list = document.getElementById('filter-tags-list');
+    list.innerHTML = '';
+    let hasFilters = false;
+
+    for (const [key, values] of Object.entries(selectedFilters)) {
+        if (values.size === 0) continue;
+        hasFilters = true;
+        const category = filterCategories.find(c => c.key === key);
+        if (!category) continue;
+
+        for (const value of values) {
+            const option = category.options.find(o => String(o.value) === String(value));
+            if (!option) continue;
+
+            const tag = document.createElement('button');
+            tag.className = 'filter-tag';
+            tag.onclick = function() { removeFilter(key, value); };
+            tag.innerHTML = `
+                <span>${category.name}: ${option.label}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="tag-remove">
+                    <path d="M2.79 2.79a.996.996 0 0 1 1.41 0l7.79 7.79 7.79-7.79a.996.996 0 1 1 1.41 1.41l-7.79 7.79 7.79 7.79a.996.996 0 1 1-1.41 1.41l-7.79-7.79-7.79 7.79a.996.996 0 1 1-1.41-1.41l7.79-7.79-7.79-7.78a.996.996 0 0 1 0-1.41Z" style="fill-rule:evenodd;stroke-width:0;"></path>
+                </svg>
+            `;
+            list.appendChild(tag);
+        }
+    }
+
+    container.style.display = hasFilters ? 'block' : 'none';
+}
+
+// ============================================
+// Remove / Reset Filters
+// ============================================
+function removeFilter(key, value) {
+    if (selectedFilters[key]) {
+        selectedFilters[key].delete(String(value));
+        if (selectedFilters[key].size === 0) delete selectedFilters[key];
+    }
+    const li = document.querySelector(
+        `.product-filter-item[data-filter-key="${key}"][data-filter-value="${value}"]`
+    );
+    if (li) {
+        const cb = li.querySelector('.gbt-main-checkbox');
+        if (cb) cb.checked = false;
+    }
+    updateFilterState();
+}
+
+function resetAllFilters() {
+    selectedFilters = {};
+    document.querySelectorAll('.gbt-main-checkbox').forEach(cb => { cb.checked = false; });
+    updateFilterState();
+}
+
+// ============================================
+// Render Results (Table)
+// ============================================
+function renderResults(matchingProducts) {
+    const list = document.getElementById('results-list');
+
+    if (matchingProducts.length === 0) {
+        list.innerHTML = `
+            <div class="results-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <p>No matching configurations found. Try adjusting your filters.</p>
+            </div>`;
+        return;
+    }
+
+    const labelMap = {};
+    filterCategories.forEach(cat => {
+        cat.options.forEach(opt => {
+            labelMap[`${cat.key}:${opt.value}`] = opt.label;
+        });
+    });
+    const getLabel = (key, value) => labelMap[`${key}:${value}`] || value;
+
+    let html = `<table class="results-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Platform</th>
+                <th>Vendor</th>
+                <th>CPU Series</th>
+                <th>Form Factor</th>
+                <th>GPU</th>
+                <th>Cooling</th>
+                <th>DIMM</th>
+                <th>LAN</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    matchingProducts.forEach(p => {
+        const gpuText = p.gpus > 0
+            ? p.gpus + 'x ' + getLabel('gpuType', p.gpuType)
+            : 'No GPU';
+        html += `
+            <tr>
+                <td>${p.id}</td>
+                <td><span class="result-badge platform">${getLabel('platform', p.platform)}</span></td>
+                <td><span class="result-badge vendor">${getLabel('vendor', p.vendor)}</span></td>
+                <td>${getLabel('cpuSeries', p.cpuSeries)}</td>
+                <td><span class="result-badge form-factor">${getLabel('formFactor', p.formFactor)}</span></td>
+                <td><span class="result-badge gpu">${gpuText}</span></td>
+                <td><span class="result-badge cooling">${getLabel('cooling', p.cooling)}</span></td>
+                <td>${p.dimmSlots}</td>
+                <td>${getLabel('lanSpeed', p.lanSpeed)}</td>
+            </tr>`;
+    });
+
+    html += '</tbody></table>';
+    list.innerHTML = html;
+}
+
+// ============================================
+// Start: Load CSVs then initialize
+// ============================================
+loadData();
+</script>
+</body>
+</html>
