@@ -8,41 +8,112 @@
 </head>
 <body style="background-color: #f1f5f9; padding: 24px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; height: 100vh; box-sizing: border-box;">
     <div class="configurator-wrapper">
+        <!-- Header -->
         <div class="configurator-header">
-            <h1>Advanced Server Configurator</h1>
-            <p>Multi-Layer Filter System - Select options to narrow down compatible configurations</p>
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>Advanced Server Configurator</h1>
+                    <p>Multi-Layer Filter System - Select options to narrow down compatible configurations</p>
+                </div>
+                <button class="cart-icon-btn" onclick="showCart()" title="Shopping Cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="#fff">
+                        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                    <span class="cart-badge" id="cart-badge" style="display:none;">0</span>
+                </button>
+            </div>
         </div>
 
+        <!-- Body: Contains all views -->
         <div class="configurator-body">
-            <!-- Left: Filter Panel -->
-            <div class="filter-panel">
-                <div class="filter-header">
-                    <div class="filter-title">Filter</div>
-                    <button class="filter-reset-btn" onclick="resetAllFilters()" aria-label="Reset filter conditions">Reset</button>
+
+            <!-- ========== MAIN VIEW ========== -->
+            <div id="main-view" class="view-container view-active">
+                <!-- Left: Filter Panel -->
+                <div class="filter-panel">
+                    <div class="filter-header">
+                        <div class="filter-title">Filter</div>
+                        <button class="filter-reset-btn" onclick="resetAllFilters()" aria-label="Reset filter conditions">Reset</button>
+                    </div>
+
+                    <div class="filter-tags-container" id="filter-tags-container" style="display: none;">
+                        <div class="filter-tags-list" id="filter-tags-list"></div>
+                    </div>
+
+                    <div class="product-count" id="product-count">
+                        Showing <strong id="match-count">0</strong> of <strong id="total-count">0</strong> configurations
+                    </div>
+
+                    <div class="filter-option-container" id="filter-option-container">
+                    </div>
                 </div>
 
-                <div class="filter-tags-container" id="filter-tags-container" style="display: none;">
-                    <div class="filter-tags-list" id="filter-tags-list"></div>
-                </div>
-
-                <div class="product-count" id="product-count">
-                    Showing <strong id="match-count">0</strong> of <strong id="total-count">0</strong> configurations
-                </div>
-
-                <div class="filter-option-container" id="filter-option-container">
+                <!-- Right: Results Panel -->
+                <div class="results-panel">
+                    <div class="results-header">
+                        <h3>Matching Configurations</h3>
+                        <div class="results-count">
+                            <strong id="results-match-count">0</strong> results
+                        </div>
+                    </div>
+                    <div id="results-list">
+                        <div class="loading-indicator">Loading data...</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Right: Results Panel -->
-            <div class="results-panel">
-                <div class="results-header">
-                    <h3>Matching Configurations</h3>
-                    <div class="results-count">
-                        <strong id="results-match-count">0</strong> results
+            <!-- ========== CONFIGURE VIEW ========== -->
+            <div id="configure-view" class="view-container view-hidden">
+                <div class="configure-panel">
+                    <div class="config-back-bar">
+                        <button class="back-btn" onclick="showMain()">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                            </svg>
+                            Back to Results
+                        </button>
+                    </div>
+                    <div id="config-content">
+                        <!-- Dynamically rendered -->
+                    </div>
+                    <div class="config-action-bar">
+                        <button class="action-btn cancel-btn" onclick="cancelConfig()">Cancel</button>
+                        <button class="action-btn draft-btn" onclick="saveDraft()">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/>
+                            </svg>
+                            Save Draft
+                        </button>
+                        <button class="action-btn submit-btn" onclick="submitConfig()">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Submit
+                        </button>
                     </div>
                 </div>
-                <div id="results-list">
-                    <div class="loading-indicator">Loading data...</div>
+            </div>
+
+            <!-- ========== CART VIEW ========== -->
+            <div id="cart-view" class="view-container view-hidden">
+                <div class="cart-panel">
+                    <div class="cart-back-bar">
+                        <button class="back-btn" onclick="showMain()">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                            </svg>
+                            Back to Results
+                        </button>
+                        <h3 class="cart-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                                <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                            </svg>
+                            Shopping Cart
+                        </h3>
+                    </div>
+                    <div id="cart-content">
+                        <!-- Dynamically rendered -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -55,6 +126,86 @@
 let products = [];
 let filterCategories = [];
 let selectedFilters = {};
+let currentView = 'main';
+let selectedProduct = null;
+let currentConfig = { cpu: '', dimm: '', lanCard: '', raidCard: '' };
+let cartItems = JSON.parse(localStorage.getItem('serverCartItems') || '[]');
+let editingCartIndex = -1;
+
+// ============================================
+// Configuration Options Data
+// ============================================
+const cpuOptions = {
+    'xeon-scalable': [
+        { id: 'xeon-8490h', name: 'Intel\u00ae Xeon\u00ae 8490H', desc: '60 Cores / 1.9 GHz / 350W TDP' },
+        { id: 'xeon-8480+', name: 'Intel\u00ae Xeon\u00ae 8480+', desc: '56 Cores / 2.0 GHz / 350W TDP' },
+        { id: 'xeon-8462y+', name: 'Intel\u00ae Xeon\u00ae 8462Y+', desc: '32 Cores / 2.8 GHz / 300W TDP' },
+        { id: 'xeon-6430', name: 'Intel\u00ae Xeon\u00ae 6430', desc: '32 Cores / 2.1 GHz / 270W TDP' },
+        { id: 'xeon-5420+', name: 'Intel\u00ae Xeon\u00ae 5420+', desc: '28 Cores / 2.0 GHz / 205W TDP' },
+    ],
+    'xeon-6': [
+        { id: 'xeon-6980p', name: 'Intel\u00ae Xeon\u00ae 6980P', desc: '128 Cores / 2.0 GHz / 500W TDP' },
+        { id: 'xeon-6960p', name: 'Intel\u00ae Xeon\u00ae 6960P', desc: '72 Cores / 2.7 GHz / 500W TDP' },
+        { id: 'xeon-6780e', name: 'Intel\u00ae Xeon\u00ae 6780E', desc: '144 Cores / 2.2 GHz / 330W TDP' },
+        { id: 'xeon-6530', name: 'Intel\u00ae Xeon\u00ae 6530', desc: '32 Cores / 2.1 GHz / 270W TDP' },
+    ],
+    'xeon-e': [
+        { id: 'xeon-e2488', name: 'Intel\u00ae Xeon\u00ae E-2488', desc: '8 Cores / 3.2 GHz / 95W TDP' },
+        { id: 'xeon-e2478', name: 'Intel\u00ae Xeon\u00ae E-2478', desc: '8 Cores / 2.8 GHz / 80W TDP' },
+        { id: 'xeon-e2468', name: 'Intel\u00ae Xeon\u00ae E-2468', desc: '6 Cores / 2.6 GHz / 65W TDP' },
+    ],
+    'epyc': [
+        { id: 'epyc-9754', name: 'AMD EPYC\u2122 9754', desc: '128 Cores / 2.25 GHz / 360W TDP' },
+        { id: 'epyc-9654', name: 'AMD EPYC\u2122 9654', desc: '96 Cores / 2.4 GHz / 360W TDP' },
+        { id: 'epyc-9554', name: 'AMD EPYC\u2122 9554', desc: '64 Cores / 3.1 GHz / 360W TDP' },
+        { id: 'epyc-9474f', name: 'AMD EPYC\u2122 9474F', desc: '48 Cores / 3.6 GHz / 360W TDP' },
+        { id: 'epyc-9354', name: 'AMD EPYC\u2122 9354', desc: '32 Cores / 3.25 GHz / 280W TDP' },
+    ],
+    'threadripper': [
+        { id: 'tr-7995wx', name: 'AMD Ryzen\u2122 Threadripper\u2122 PRO 7995WX', desc: '96 Cores / 2.5 GHz / 350W TDP' },
+        { id: 'tr-7985wx', name: 'AMD Ryzen\u2122 Threadripper\u2122 PRO 7985WX', desc: '64 Cores / 3.2 GHz / 350W TDP' },
+        { id: 'tr-7975wx', name: 'AMD Ryzen\u2122 Threadripper\u2122 PRO 7975WX', desc: '32 Cores / 4.0 GHz / 350W TDP' },
+    ],
+    'grace': [
+        { id: 'grace-72', name: 'NVIDIA Grace\u2122 CPU (72-core)', desc: '72 Cores / ARM Neoverse V2 / 250W TDP' },
+        { id: 'grace-144', name: 'NVIDIA Grace\u2122 CPU Superchip (144-core)', desc: '144 Cores / Dual Grace / 500W TDP' },
+    ],
+    'altra': [
+        { id: 'altra-q80', name: 'Ampere\u00ae Altra\u00ae Q80-33', desc: '80 Cores / 3.3 GHz / 250W TDP' },
+        { id: 'altra-q64', name: 'Ampere\u00ae Altra\u00ae Q64-30', desc: '64 Cores / 3.0 GHz / 220W TDP' },
+        { id: 'altra-max-m128', name: 'Ampere\u00ae Altra\u00ae Max M128-30', desc: '128 Cores / 3.0 GHz / 250W TDP' },
+    ],
+    'ampereone': [
+        { id: 'ampereone-a192', name: 'AmpereOne\u00ae A192-32X', desc: '192 Cores / 3.2 GHz / 350W TDP' },
+        { id: 'ampereone-a176', name: 'AmpereOne\u00ae A176-28X', desc: '176 Cores / 2.8 GHz / 300W TDP' },
+        { id: 'ampereone-a128', name: 'AmpereOne\u00ae A128-26X', desc: '128 Cores / 2.6 GHz / 250W TDP' },
+    ],
+};
+
+const dimmOptions = [
+    { id: 'ddr5-16', name: 'DDR5 16GB RDIMM', desc: '4800MHz / ECC Registered' },
+    { id: 'ddr5-32', name: 'DDR5 32GB RDIMM', desc: '4800MHz / ECC Registered' },
+    { id: 'ddr5-64', name: 'DDR5 64GB RDIMM', desc: '4800MHz / ECC Registered' },
+    { id: 'ddr5-128', name: 'DDR5 128GB RDIMM', desc: '4800MHz / ECC Registered / 3DS' },
+    { id: 'ddr5-256', name: 'DDR5 256GB RDIMM', desc: '4800MHz / ECC Registered / 3DS' },
+];
+
+const lanCardOptions = [
+    { id: 'onboard', name: 'Onboard LAN (Built-in)', desc: 'Included with motherboard' },
+    { id: 'x710-2x10g', name: 'Intel\u00ae X710-DA2 10GbE SFP+', desc: '2-Port / PCIe 3.0 x8' },
+    { id: 'e810-2x25g', name: 'Intel\u00ae E810-XXVDA2 25GbE SFP28', desc: '2-Port / PCIe 4.0 x8' },
+    { id: 'cx6-2x25g', name: 'Mellanox ConnectX-6 Dx 25GbE', desc: '2-Port SFP28 / PCIe 4.0 x16' },
+    { id: 'cx7-2x100g', name: 'Mellanox ConnectX-7 100GbE QSFP56', desc: '2-Port / PCIe 5.0 x16' },
+    { id: 'bcm57414', name: 'Broadcom BCM57414 25GbE SFP28', desc: '2-Port / PCIe 3.0 x8' },
+];
+
+const raidCardOptions = [
+    { id: 'none', name: 'None (Software RAID / Pass-through)', desc: 'OS-based software RAID or HBA mode' },
+    { id: 'mr9560-8i', name: 'Broadcom MegaRAID 9560-8i', desc: '8-Port SAS/SATA / PCIe 4.0 / 4GB Cache' },
+    { id: 'mr9560-16i', name: 'Broadcom MegaRAID 9560-16i', desc: '16-Port SAS/SATA / PCIe 4.0 / 4GB Cache' },
+    { id: 'sr3200-8i', name: 'Microchip Adaptec SmartRAID 3200-8i', desc: '8-Port SAS/SATA / PCIe 4.0 / 4GB Cache' },
+    { id: 'mr9670-24i', name: 'Broadcom MegaRAID 9670-24i', desc: '24-Port SAS/NVMe / PCIe 5.0 / 8GB Cache' },
+];
 
 // ============================================
 // XLSX Parsing
@@ -130,6 +281,49 @@ function init() {
     document.getElementById('total-count').textContent = products.length;
     renderFilterCategories();
     updateFilterState();
+    updateCartBadge();
+}
+
+// ============================================
+// View Navigation
+// ============================================
+function switchView(viewName) {
+    currentView = viewName;
+    document.querySelectorAll('.view-container').forEach(v => {
+        v.classList.remove('view-active');
+        v.classList.add('view-hidden');
+    });
+    const target = document.getElementById(viewName + '-view');
+    if (target) {
+        target.classList.remove('view-hidden');
+        target.classList.add('view-active');
+    }
+}
+
+function showMain() {
+    switchView('main');
+}
+
+function showCart() {
+    renderCart();
+    switchView('cart');
+}
+
+function openConfigurator(productId, cartIndex) {
+    selectedProduct = products.find(p => p.id === productId);
+    if (!selectedProduct) return;
+
+    if (typeof cartIndex === 'number' && cartIndex >= 0) {
+        editingCartIndex = cartIndex;
+        const item = cartItems[cartIndex];
+        currentConfig = { ...item.config };
+    } else {
+        editingCartIndex = -1;
+        currentConfig = { cpu: '', dimm: '', lanCard: '', raidCard: '' };
+    }
+
+    renderConfigPage();
+    switchView('configure');
 }
 
 // ============================================
@@ -191,16 +385,29 @@ function renderFilterCategories() {
 }
 
 // ============================================
-// Toggle Filter Category
+// Toggle Filter Category (Exclusive Accordion)
 // ============================================
 function toggleFilter(titleElement) {
     const category = titleElement.parentElement;
-    const subMenu = category.querySelector('.product-sub-menu');
-    const icon = titleElement.querySelector('.filter-icon');
+    const isActive = category.classList.contains('filter-category-active');
 
-    category.classList.toggle('filter-category-active');
-    subMenu.classList.toggle('active');
-    icon.classList.toggle('rotate');
+    // Close ALL categories first
+    document.querySelectorAll('.product-filter-category').forEach(cat => {
+        cat.classList.remove('filter-category-active');
+        const sm = cat.querySelector('.product-sub-menu');
+        if (sm) sm.classList.remove('active');
+        const ic = cat.querySelector('.filter-icon');
+        if (ic) ic.classList.remove('rotate');
+    });
+
+    // If the clicked one wasn't active, open it
+    if (!isActive) {
+        category.classList.add('filter-category-active');
+        const subMenu = category.querySelector('.product-sub-menu');
+        if (subMenu) subMenu.classList.add('active');
+        const icon = category.querySelector('.filter-icon');
+        if (icon) icon.classList.add('rotate');
+    }
 }
 
 // ============================================
@@ -381,7 +588,24 @@ function resetAllFilters() {
 }
 
 // ============================================
-// Render Results (Table)
+// Label helper
+// ============================================
+function buildLabelMap() {
+    const labelMap = {};
+    filterCategories.forEach(cat => {
+        cat.options.forEach(opt => {
+            labelMap[`${cat.key}:${opt.value}`] = opt.label;
+        });
+    });
+    return labelMap;
+}
+
+function getLabel(labelMap, key, value) {
+    return labelMap[`${key}:${value}`] || value;
+}
+
+// ============================================
+// Render Results (Card Layout)
 // ============================================
 function renderResults(matchingProducts) {
     const list = document.getElementById('results-list');
@@ -395,54 +619,435 @@ function renderResults(matchingProducts) {
         return;
     }
 
-    const labelMap = {};
-    filterCategories.forEach(cat => {
-        cat.options.forEach(opt => {
-            labelMap[`${cat.key}:${opt.value}`] = opt.label;
-        });
-    });
-    const getLabel = (key, value) => labelMap[`${key}:${value}`] || value;
-
-    let html = `<table class="results-table">
-        <thead>
-            <tr>
-                <th>Model</th>
-                <th>Platform</th>
-                <th>Vendor</th>
-                <th>CPU Series</th>
-                <th>Form Factor</th>
-                <th>GPU</th>
-                <th>Cooling</th>
-                <th>DIMM</th>
-                <th>LAN</th>
-            </tr>
-        </thead>
-        <tbody>`;
+    const labelMap = buildLabelMap();
+    let html = '<div class="product-cards">';
 
     matchingProducts.forEach(p => {
         const gpuText = p.gpus > 0
-            ? p.gpus + 'x ' + getLabel('gpuType', p.gpuType)
+            ? p.gpus + '\u00d7 ' + getLabel(labelMap, 'gpuType', p.gpuType)
             : 'No GPU';
+        const apps = p.application.map(a => getLabel(labelMap, 'application', a)).join(', ');
+
         html += `
-            <tr>
-                <td>${p.id}</td>
-                <td><span class="result-badge platform">${getLabel('platform', p.platform)}</span></td>
-                <td><span class="result-badge vendor">${getLabel('vendor', p.vendor)}</span></td>
-                <td>${getLabel('cpuSeries', p.cpuSeries)}</td>
-                <td><span class="result-badge form-factor">${getLabel('formFactor', p.formFactor)}</span></td>
-                <td><span class="result-badge gpu">${gpuText}</span></td>
-                <td><span class="result-badge cooling">${getLabel('cooling', p.cooling)}</span></td>
-                <td>${p.dimmSlots}</td>
-                <td>${getLabel('lanSpeed', p.lanSpeed)}</td>
-            </tr>`;
+            <div class="product-card" onclick="openConfigurator('${p.id}')">
+                <div class="product-card-body">
+                    <div class="product-card-header">
+                        <span class="product-card-name">${p.id}</span>
+                        <span class="result-badge form-factor">${getLabel(labelMap, 'formFactor', p.formFactor)}</span>
+                    </div>
+                    <div class="product-card-badges">
+                        <span class="result-badge platform">${getLabel(labelMap, 'platform', p.platform)}</span>
+                        <span class="result-badge vendor">${getLabel(labelMap, 'vendor', p.vendor)}</span>
+                        <span class="card-spec-text">${getLabel(labelMap, 'cpuSeries', p.cpuSeries)}</span>
+                    </div>
+                    <div class="product-card-specs">
+                        <span>${gpuText}</span>
+                        <span class="spec-sep">&middot;</span>
+                        <span class="result-badge cooling">${getLabel(labelMap, 'cooling', p.cooling)}</span>
+                        <span class="spec-sep">&middot;</span>
+                        <span>${p.dimmSlots} DIMM</span>
+                        <span class="spec-sep">&middot;</span>
+                        <span>${getLabel(labelMap, 'lanSpeed', p.lanSpeed)}</span>
+                    </div>
+                    <div class="product-card-apps">${apps}</div>
+                </div>
+                <div class="product-card-arrow">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                </div>
+            </div>`;
     });
 
-    html += '</tbody></table>';
+    html += '</div>';
     list.innerHTML = html;
 }
 
 // ============================================
-// Start: Load CSVs then initialize
+// Configuration Page
+// ============================================
+function renderConfigPage() {
+    const content = document.getElementById('config-content');
+    const labelMap = buildLabelMap();
+    const p = selectedProduct;
+
+    const gpuText = p.gpus > 0
+        ? p.gpus + '\u00d7 ' + getLabel(labelMap, 'gpuType', p.gpuType)
+        : 'No GPU';
+
+    // Product summary
+    let html = `
+        <div class="config-product-summary">
+            <div class="config-product-name">${p.id}</div>
+            <div class="config-product-specs">
+                <span class="result-badge platform">${getLabel(labelMap, 'platform', p.platform)}</span>
+                <span class="result-badge vendor">${getLabel(labelMap, 'vendor', p.vendor)}</span>
+                <span class="result-badge form-factor">${getLabel(labelMap, 'formFactor', p.formFactor)}</span>
+                <span class="result-badge cooling">${getLabel(labelMap, 'cooling', p.cooling)}</span>
+            </div>
+            <div class="config-product-detail">
+                ${getLabel(labelMap, 'cpuSeries', p.cpuSeries)} &middot;
+                ${gpuText} &middot;
+                ${p.dimmSlots} DIMM Slots &middot;
+                ${getLabel(labelMap, 'lanSpeed', p.lanSpeed)}
+            </div>
+        </div>
+    `;
+
+    // CPU Section
+    const cpus = cpuOptions[p.cpuSeries] || [];
+    html += renderConfigSection('cpu', 'Processor (CPU)', cpus, currentConfig.cpu,
+        'svg-cpu', '<path d="M15 21h-2v-2h2v2zm-2-7h-2v5h2v-5zm8-2h-2v4h2v-4zm-2-2h-2v2h2V8zM7 12H5v4h2v-4zm-2-2H3v2h2V8zm7-5h2V3h-2v2zm-7.5 0h2V1h-2v2zM21 5V1h-2v4h2zM3 5V1H1v4h2zm0 16H1v-4h2v4zm18 0v-4h2v4h-2zM15 5h2V3h-2v2zM5 5h2V3H5v2zm0 16h2v-2H5v2zM9 5V1H7v4h2zM3 9H1v2h2V9zm0 4H1v2h2v-2zM1 7h2V5H1v2zm20 4h2V9h-2v2zm0-6v2h2V5h-2zm0 8h2v-2h-2v2zM9 21h2v-2H9v2zM7 7H5v2h2V7zm10 10h-2v4h2v-4zm-6 4h2v-2h-2v2zM9 7h6v6H9V7z"/>');
+
+    // DIMM Section
+    if (p.dimmSlots > 0) {
+        const dimmWithTotal = dimmOptions.map(d => {
+            const sizeMatch = d.name.match(/(\d+)GB/);
+            const sizeGB = sizeMatch ? parseInt(sizeMatch[1]) : 0;
+            const totalGB = sizeGB * p.dimmSlots;
+            const totalStr = totalGB >= 1024 ? (totalGB / 1024) + 'TB' : totalGB + 'GB';
+            return { ...d, desc: d.desc + ' / ' + p.dimmSlots + ' slots = ' + totalStr + ' Total' };
+        });
+        html += renderConfigSection('dimm', 'Memory (DIMM)', dimmWithTotal, currentConfig.dimm,
+            'svg-dimm', '<path d="M2 7v9h4v-4h2v4h2v-4h2v4h2v-4h2v4h2v-4h2v4h4V7H2zm18 7h-2v-4h2v4z"/>');
+    } else {
+        html += `
+            <div class="config-section">
+                <div class="config-section-header" onclick="toggleConfigSection(this)">
+                    <div class="config-section-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" class="config-section-icon">
+                            <path d="M2 7v9h4v-4h2v4h2v-4h2v4h2v-4h2v4h2v-4h2v4h4V7H2zm18 7h-2v-4h2v4z"/>
+                        </svg>
+                        Memory (DIMM)
+                    </div>
+                    <span class="config-section-summary">Integrated Memory (No DIMM Slots)</span>
+                </div>
+            </div>`;
+    }
+
+    // LAN Card Section
+    html += renderConfigSection('lanCard', 'LAN Card', lanCardOptions, currentConfig.lanCard,
+        'svg-lan', '<path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4l2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>');
+
+    // RAID Card Section
+    html += renderConfigSection('raidCard', 'RAID Card', raidCardOptions, currentConfig.raidCard,
+        'svg-raid', '<path d="M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v4h20V4H2zm4 3H4V5h2v2zm-4 7h20v-4H2v4zm2-3h2v2H4v-2z"/>');
+
+    content.innerHTML = html;
+
+    // Open the first section by default
+    const firstSection = content.querySelector('.config-section-header');
+    if (firstSection) {
+        toggleConfigSection(firstSection);
+    }
+}
+
+function renderConfigSection(key, title, options, selectedValue, svgClass, svgPath) {
+    const selectedOpt = options.find(o => o.id === selectedValue);
+    const summaryText = selectedOpt ? selectedOpt.name : 'Not selected';
+
+    let html = `
+        <div class="config-section" data-section-key="${key}">
+            <div class="config-section-header" onclick="toggleConfigSection(this)">
+                <div class="config-section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" class="config-section-icon">
+                        ${svgPath}
+                    </svg>
+                    ${title}
+                </div>
+                <div class="config-section-right">
+                    <span class="config-section-summary">${summaryText}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="config-chevron">
+                        <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule: evenodd;"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="config-section-body">
+                <div class="config-options">`;
+
+    options.forEach(opt => {
+        const checked = opt.id === selectedValue ? 'checked' : '';
+        html += `
+                    <label class="config-option ${checked ? 'selected' : ''}" onclick="selectConfigOption('${key}', '${opt.id}', this)">
+                        <div class="config-radio-wrapper">
+                            <input type="radio" name="config-${key}" value="${opt.id}" ${checked}
+                                   onchange="onConfigChange('${key}', '${opt.id}')">
+                            <span class="config-radio-custom"></span>
+                        </div>
+                        <div class="config-option-info">
+                            <div class="config-option-name">${opt.name}</div>
+                            <div class="config-option-desc">${opt.desc}</div>
+                        </div>
+                    </label>`;
+    });
+
+    html += `
+                </div>
+            </div>
+        </div>`;
+    return html;
+}
+
+function toggleConfigSection(headerEl) {
+    const section = headerEl.parentElement;
+    const isActive = section.classList.contains('config-section-active');
+
+    if (isActive) {
+        section.classList.remove('config-section-active');
+    } else {
+        section.classList.add('config-section-active');
+    }
+}
+
+function onConfigChange(key, value) {
+    currentConfig[key] = value;
+    // Update summary text
+    const section = document.querySelector(`.config-section[data-section-key="${key}"]`);
+    if (section) {
+        const summaryEl = section.querySelector('.config-section-summary');
+        let options;
+        if (key === 'cpu') options = cpuOptions[selectedProduct.cpuSeries] || [];
+        else if (key === 'dimm') options = dimmOptions;
+        else if (key === 'lanCard') options = lanCardOptions;
+        else if (key === 'raidCard') options = raidCardOptions;
+
+        const opt = options ? options.find(o => o.id === value) : null;
+        if (summaryEl && opt) summaryEl.textContent = opt.name;
+
+        // Update selected class on labels
+        section.querySelectorAll('.config-option').forEach(label => {
+            const radio = label.querySelector('input[type="radio"]');
+            if (radio && radio.value === value) {
+                label.classList.add('selected');
+            } else {
+                label.classList.remove('selected');
+            }
+        });
+    }
+}
+
+function selectConfigOption(key, value, labelEl) {
+    // This is handled by the radio onchange, but we also update the visual state
+}
+
+// ============================================
+// Config Actions
+// ============================================
+function cancelConfig() {
+    editingCartIndex = -1;
+    currentConfig = { cpu: '', dimm: '', lanCard: '', raidCard: '' };
+    selectedProduct = null;
+    showMain();
+}
+
+function saveDraft() {
+    if (!selectedProduct) return;
+
+    const item = {
+        productId: selectedProduct.id,
+        config: { ...currentConfig },
+        status: 'draft',
+        timestamp: new Date().toISOString()
+    };
+
+    if (editingCartIndex >= 0) {
+        cartItems[editingCartIndex] = item;
+    } else {
+        cartItems.push(item);
+    }
+
+    saveCart();
+    editingCartIndex = -1;
+    showMain();
+}
+
+function submitConfig() {
+    if (!selectedProduct) return;
+
+    // Validate that all required fields are selected
+    const hasCpu = !!currentConfig.cpu;
+    const hasDimm = selectedProduct.dimmSlots === 0 || !!currentConfig.dimm;
+    const hasLan = !!currentConfig.lanCard;
+    const hasRaid = !!currentConfig.raidCard;
+
+    if (!hasCpu || !hasDimm || !hasLan || !hasRaid) {
+        alert('Please complete all configuration selections before submitting.');
+        return;
+    }
+
+    const item = {
+        productId: selectedProduct.id,
+        config: { ...currentConfig },
+        status: 'confirmed',
+        timestamp: new Date().toISOString()
+    };
+
+    if (editingCartIndex >= 0) {
+        cartItems[editingCartIndex] = item;
+    } else {
+        cartItems.push(item);
+    }
+
+    saveCart();
+    editingCartIndex = -1;
+    showCart();
+}
+
+// ============================================
+// Cart Management
+// ============================================
+function saveCart() {
+    localStorage.setItem('serverCartItems', JSON.stringify(cartItems));
+    updateCartBadge();
+}
+
+function updateCartBadge() {
+    const badge = document.getElementById('cart-badge');
+    if (badge) {
+        if (cartItems.length > 0) {
+            badge.style.display = 'flex';
+            badge.textContent = cartItems.length;
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+function removeCartItem(index) {
+    cartItems.splice(index, 1);
+    saveCart();
+    renderCart();
+}
+
+function editCartItem(index) {
+    const item = cartItems[index];
+    openConfigurator(item.productId, index);
+}
+
+function confirmCartItem(index) {
+    cartItems[index].status = 'confirmed';
+    cartItems[index].timestamp = new Date().toISOString();
+    saveCart();
+    renderCart();
+}
+
+function renderCart() {
+    const content = document.getElementById('cart-content');
+
+    if (cartItems.length === 0) {
+        content.innerHTML = `
+            <div class="cart-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" fill="#cbd5e1">
+                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                </svg>
+                <p class="cart-empty-title">Your cart is empty</p>
+                <p class="cart-empty-desc">Configure a server model and save it to your cart</p>
+                <button class="action-btn submit-btn" onclick="showMain()" style="margin-top: 16px;">Browse Models</button>
+            </div>`;
+        return;
+    }
+
+    const labelMap = buildLabelMap();
+    let confirmedCount = cartItems.filter(i => i.status === 'confirmed').length;
+    let draftCount = cartItems.filter(i => i.status === 'draft').length;
+
+    let html = `
+        <div class="cart-summary-bar">
+            <span class="cart-summary-total">${cartItems.length} item(s)</span>
+            <span class="cart-summary-detail">
+                <span class="status-confirmed-text">${confirmedCount} confirmed</span>
+                <span class="spec-sep">&middot;</span>
+                <span class="status-draft-text">${draftCount} draft(s)</span>
+            </span>
+        </div>
+        <div class="cart-items">`;
+
+    cartItems.forEach((item, index) => {
+        const product = products.find(p => p.id === item.productId);
+        if (!product) return;
+
+        const gpuText = product.gpus > 0
+            ? product.gpus + '\u00d7 ' + getLabel(labelMap, 'gpuType', product.gpuType)
+            : 'No GPU';
+
+        // Resolve config option names
+        const cpuName = resolveOptionName('cpu', product.cpuSeries, item.config.cpu);
+        const dimmName = product.dimmSlots > 0 ? resolveOptionName('dimm', null, item.config.dimm) : 'Integrated Memory';
+        const lanName = resolveOptionName('lanCard', null, item.config.lanCard);
+        const raidName = resolveOptionName('raidCard', null, item.config.raidCard);
+
+        const statusClass = item.status === 'confirmed' ? 'status-confirmed' : 'status-draft';
+        const statusLabel = item.status === 'confirmed' ? 'Confirmed' : 'Draft';
+
+        html += `
+            <div class="cart-item">
+                <div class="cart-item-header">
+                    <div class="cart-item-title">
+                        <span class="cart-item-name">${item.productId}</span>
+                        <span class="cart-item-status ${statusClass}">${statusLabel}</span>
+                    </div>
+                    <div class="cart-item-actions">
+                        ${item.status === 'draft' ? `<button class="cart-action-btn confirm-btn" onclick="confirmCartItem(${index})" title="Confirm">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                        </button>` : ''}
+                        <button class="cart-action-btn edit-btn" onclick="editCartItem(${index})" title="Edit">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        </button>
+                        <button class="cart-action-btn delete-btn" onclick="removeCartItem(${index})" title="Remove">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="cart-item-base">
+                    <span class="result-badge platform">${getLabel(labelMap, 'platform', product.platform)}</span>
+                    <span class="result-badge vendor">${getLabel(labelMap, 'vendor', product.vendor)}</span>
+                    <span class="result-badge form-factor">${getLabel(labelMap, 'formFactor', product.formFactor)}</span>
+                    <span class="result-badge cooling">${getLabel(labelMap, 'cooling', product.cooling)}</span>
+                    <span style="font-size:12px; color:#64748b;">${gpuText}</span>
+                </div>
+                <div class="cart-item-config">
+                    <div class="cart-config-row">
+                        <span class="cart-config-label">CPU</span>
+                        <span class="cart-config-value">${cpuName}</span>
+                    </div>
+                    <div class="cart-config-row">
+                        <span class="cart-config-label">Memory</span>
+                        <span class="cart-config-value">${dimmName}</span>
+                    </div>
+                    <div class="cart-config-row">
+                        <span class="cart-config-label">LAN Card</span>
+                        <span class="cart-config-value">${lanName}</span>
+                    </div>
+                    <div class="cart-config-row">
+                        <span class="cart-config-label">RAID Card</span>
+                        <span class="cart-config-value">${raidName}</span>
+                    </div>
+                </div>
+                <div class="cart-item-time">
+                    Last updated: ${new Date(item.timestamp).toLocaleString()}
+                </div>
+            </div>`;
+    });
+
+    html += '</div>';
+    content.innerHTML = html;
+}
+
+function resolveOptionName(key, cpuSeries, optionId) {
+    if (!optionId) return 'Not selected';
+    let options;
+    if (key === 'cpu') options = cpuOptions[cpuSeries] || [];
+    else if (key === 'dimm') options = dimmOptions;
+    else if (key === 'lanCard') options = lanCardOptions;
+    else if (key === 'raidCard') options = raidCardOptions;
+    else return optionId;
+
+    const opt = options.find(o => o.id === optionId);
+    return opt ? opt.name : optionId;
+}
+
+// ============================================
+// Start: Load data then initialize
 // ============================================
 loadData();
 </script>
