@@ -1,0 +1,45 @@
+section_key,section_name,section_type,applies_to,option_id,option_name,option_desc,default_qty,qty_editable
+cpu,Processor (CPU),single,xeon-scalable,xeon-8490h,Intel® Xeon® 8490H,60 Cores / 1.9 GHz / 350W TDP,1,false
+cpu,Processor (CPU),single,xeon-scalable,xeon-8480+,Intel® Xeon® 8480+,56 Cores / 2.0 GHz / 350W TDP,1,false
+cpu,Processor (CPU),single,xeon-scalable,xeon-8462y+,Intel® Xeon® 8462Y+,32 Cores / 2.8 GHz / 300W TDP,1,false
+cpu,Processor (CPU),single,xeon-scalable,xeon-6430,Intel® Xeon® 6430,32 Cores / 2.1 GHz / 270W TDP,1,false
+cpu,Processor (CPU),single,xeon-scalable,xeon-5420+,Intel® Xeon® 5420+,28 Cores / 2.0 GHz / 205W TDP,1,false
+cpu,Processor (CPU),single,xeon-6,xeon-6980p,Intel® Xeon® 6980P,128 Cores / 2.0 GHz / 500W TDP,1,false
+cpu,Processor (CPU),single,xeon-6,xeon-6960p,Intel® Xeon® 6960P,72 Cores / 2.7 GHz / 500W TDP,1,false
+cpu,Processor (CPU),single,xeon-6,xeon-6780e,Intel® Xeon® 6780E,144 Cores / 2.2 GHz / 330W TDP,1,false
+cpu,Processor (CPU),single,xeon-6,xeon-6530,Intel® Xeon® 6530,32 Cores / 2.1 GHz / 270W TDP,1,false
+cpu,Processor (CPU),single,xeon-e,xeon-e2488,Intel® Xeon® E-2488,8 Cores / 3.2 GHz / 95W TDP,1,false
+cpu,Processor (CPU),single,xeon-e,xeon-e2478,Intel® Xeon® E-2478,8 Cores / 2.8 GHz / 80W TDP,1,false
+cpu,Processor (CPU),single,xeon-e,xeon-e2468,Intel® Xeon® E-2468,6 Cores / 2.6 GHz / 65W TDP,1,false
+cpu,Processor (CPU),single,epyc,epyc-9754,AMD EPYC™ 9754,128 Cores / 2.25 GHz / 360W TDP,1,false
+cpu,Processor (CPU),single,epyc,epyc-9654,AMD EPYC™ 9654,96 Cores / 2.4 GHz / 360W TDP,1,false
+cpu,Processor (CPU),single,epyc,epyc-9554,AMD EPYC™ 9554,64 Cores / 3.1 GHz / 360W TDP,1,false
+cpu,Processor (CPU),single,epyc,epyc-9474f,AMD EPYC™ 9474F,48 Cores / 3.6 GHz / 360W TDP,1,false
+cpu,Processor (CPU),single,epyc,epyc-9354,AMD EPYC™ 9354,32 Cores / 3.25 GHz / 280W TDP,1,false
+cpu,Processor (CPU),single,threadripper,tr-7995wx,AMD Ryzen™ Threadripper™ PRO 7995WX,96 Cores / 2.5 GHz / 350W TDP,1,false
+cpu,Processor (CPU),single,threadripper,tr-7985wx,AMD Ryzen™ Threadripper™ PRO 7985WX,64 Cores / 3.2 GHz / 350W TDP,1,false
+cpu,Processor (CPU),single,threadripper,tr-7975wx,AMD Ryzen™ Threadripper™ PRO 7975WX,32 Cores / 4.0 GHz / 350W TDP,1,false
+cpu,Processor (CPU),single,grace,grace-72,NVIDIA Grace™ CPU (72-core),72 Cores / ARM Neoverse V2 / 250W TDP,1,false
+cpu,Processor (CPU),single,grace,grace-144,NVIDIA Grace™ CPU Superchip (144-core),144 Cores / Dual Grace / 500W TDP,1,false
+cpu,Processor (CPU),single,altra,altra-q80,Ampere® Altra® Q80-33,80 Cores / 3.3 GHz / 250W TDP,1,false
+cpu,Processor (CPU),single,altra,altra-q64,Ampere® Altra® Q64-30,64 Cores / 3.0 GHz / 220W TDP,1,false
+cpu,Processor (CPU),single,altra,altra-max-m128,Ampere® Altra® Max M128-30,128 Cores / 3.0 GHz / 250W TDP,1,false
+cpu,Processor (CPU),single,ampereone,ampereone-a192,AmpereOne® A192-32X,192 Cores / 3.2 GHz / 350W TDP,1,false
+cpu,Processor (CPU),single,ampereone,ampereone-a176,AmpereOne® A176-28X,176 Cores / 2.8 GHz / 300W TDP,1,false
+cpu,Processor (CPU),single,ampereone,ampereone-a128,AmpereOne® A128-26X,128 Cores / 2.6 GHz / 250W TDP,1,false
+dimm,Memory (DIMM),single,*,ddr5-16,DDR5 16GB RDIMM,4800MHz / ECC Registered,1,true
+dimm,Memory (DIMM),single,*,ddr5-32,DDR5 32GB RDIMM,4800MHz / ECC Registered,1,true
+dimm,Memory (DIMM),single,*,ddr5-64,DDR5 64GB RDIMM,4800MHz / ECC Registered,1,true
+dimm,Memory (DIMM),single,*,ddr5-128,DDR5 128GB RDIMM,4800MHz / ECC Registered / 3DS,1,true
+dimm,Memory (DIMM),single,*,ddr5-256,DDR5 256GB RDIMM,4800MHz / ECC Registered / 3DS,1,true
+lanCard,LAN Card,multi,*,onboard,Onboard LAN (Built-in),Included with motherboard,1,false
+lanCard,LAN Card,multi,*,x710-2x10g,Intel® X710-DA2 10GbE SFP+,2-Port / PCIe 3.0 x8,1,true
+lanCard,LAN Card,multi,*,e810-2x25g,Intel® E810-XXVDA2 25GbE SFP28,2-Port / PCIe 4.0 x8,1,true
+lanCard,LAN Card,multi,*,cx6-2x25g,Mellanox ConnectX-6 Dx 25GbE,2-Port SFP28 / PCIe 4.0 x16,1,true
+lanCard,LAN Card,multi,*,cx7-2x100g,Mellanox ConnectX-7 100GbE QSFP56,2-Port / PCIe 5.0 x16,1,true
+lanCard,LAN Card,multi,*,bcm57414,Broadcom BCM57414 25GbE SFP28,2-Port / PCIe 3.0 x8,1,true
+raidCard,RAID Card,optional,*,none,None (Software RAID / Pass-through),OS-based software RAID or HBA mode,1,false
+raidCard,RAID Card,optional,*,mr9560-8i,Broadcom MegaRAID 9560-8i,8-Port SAS/SATA / PCIe 4.0 / 4GB Cache,1,false
+raidCard,RAID Card,optional,*,mr9560-16i,Broadcom MegaRAID 9560-16i,16-Port SAS/SATA / PCIe 4.0 / 4GB Cache,1,false
+raidCard,RAID Card,optional,*,sr3200-8i,Microchip Adaptec SmartRAID 3200-8i,8-Port SAS/SATA / PCIe 4.0 / 4GB Cache,1,false
+raidCard,RAID Card,optional,*,mr9670-24i,Broadcom MegaRAID 9670-24i,24-Port SAS/NVMe / PCIe 5.0 / 8GB Cache,1,false
