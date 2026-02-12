@@ -98,87 +98,182 @@ let products = [];
 let filterCategories = [];
 let selectedFilters = {};
 let selectedProduct = null;
-let currentConfig = { cpu: '', dimm: '', lanCard: '', raidCard: '' };
+let configSectionDefs = []; // Raw section definitions from XLSX
+let activeConfigSections = []; // ConfigSection instances for current product
 let cartItems = JSON.parse(localStorage.getItem('serverCartItems') || '[]');
 let editingCartIndex = -1;
 
 // ============================================
-// Configuration Options Data
+// ConfigSection Class
 // ============================================
-const cpuOptions = {
-    'xeon-scalable': [
-        { id: 'xeon-8490h', name: 'Intel\u00ae Xeon\u00ae 8490H', desc: '60 Cores / 1.9 GHz / 350W TDP' },
-        { id: 'xeon-8480+', name: 'Intel\u00ae Xeon\u00ae 8480+', desc: '56 Cores / 2.0 GHz / 350W TDP' },
-        { id: 'xeon-8462y+', name: 'Intel\u00ae Xeon\u00ae 8462Y+', desc: '32 Cores / 2.8 GHz / 300W TDP' },
-        { id: 'xeon-6430', name: 'Intel\u00ae Xeon\u00ae 6430', desc: '32 Cores / 2.1 GHz / 270W TDP' },
-        { id: 'xeon-5420+', name: 'Intel\u00ae Xeon\u00ae 5420+', desc: '28 Cores / 2.0 GHz / 205W TDP' },
-    ],
-    'xeon-6': [
-        { id: 'xeon-6980p', name: 'Intel\u00ae Xeon\u00ae 6980P', desc: '128 Cores / 2.0 GHz / 500W TDP' },
-        { id: 'xeon-6960p', name: 'Intel\u00ae Xeon\u00ae 6960P', desc: '72 Cores / 2.7 GHz / 500W TDP' },
-        { id: 'xeon-6780e', name: 'Intel\u00ae Xeon\u00ae 6780E', desc: '144 Cores / 2.2 GHz / 330W TDP' },
-        { id: 'xeon-6530', name: 'Intel\u00ae Xeon\u00ae 6530', desc: '32 Cores / 2.1 GHz / 270W TDP' },
-    ],
-    'xeon-e': [
-        { id: 'xeon-e2488', name: 'Intel\u00ae Xeon\u00ae E-2488', desc: '8 Cores / 3.2 GHz / 95W TDP' },
-        { id: 'xeon-e2478', name: 'Intel\u00ae Xeon\u00ae E-2478', desc: '8 Cores / 2.8 GHz / 80W TDP' },
-        { id: 'xeon-e2468', name: 'Intel\u00ae Xeon\u00ae E-2468', desc: '6 Cores / 2.6 GHz / 65W TDP' },
-    ],
-    'epyc': [
-        { id: 'epyc-9754', name: 'AMD EPYC\u2122 9754', desc: '128 Cores / 2.25 GHz / 360W TDP' },
-        { id: 'epyc-9654', name: 'AMD EPYC\u2122 9654', desc: '96 Cores / 2.4 GHz / 360W TDP' },
-        { id: 'epyc-9554', name: 'AMD EPYC\u2122 9554', desc: '64 Cores / 3.1 GHz / 360W TDP' },
-        { id: 'epyc-9474f', name: 'AMD EPYC\u2122 9474F', desc: '48 Cores / 3.6 GHz / 360W TDP' },
-        { id: 'epyc-9354', name: 'AMD EPYC\u2122 9354', desc: '32 Cores / 3.25 GHz / 280W TDP' },
-    ],
-    'threadripper': [
-        { id: 'tr-7995wx', name: 'AMD Ryzen\u2122 Threadripper\u2122 PRO 7995WX', desc: '96 Cores / 2.5 GHz / 350W TDP' },
-        { id: 'tr-7985wx', name: 'AMD Ryzen\u2122 Threadripper\u2122 PRO 7985WX', desc: '64 Cores / 3.2 GHz / 350W TDP' },
-        { id: 'tr-7975wx', name: 'AMD Ryzen\u2122 Threadripper\u2122 PRO 7975WX', desc: '32 Cores / 4.0 GHz / 350W TDP' },
-    ],
-    'grace': [
-        { id: 'grace-72', name: 'NVIDIA Grace\u2122 CPU (72-core)', desc: '72 Cores / ARM Neoverse V2 / 250W TDP' },
-        { id: 'grace-144', name: 'NVIDIA Grace\u2122 CPU Superchip (144-core)', desc: '144 Cores / Dual Grace / 500W TDP' },
-    ],
-    'altra': [
-        { id: 'altra-q80', name: 'Ampere\u00ae Altra\u00ae Q80-33', desc: '80 Cores / 3.3 GHz / 250W TDP' },
-        { id: 'altra-q64', name: 'Ampere\u00ae Altra\u00ae Q64-30', desc: '64 Cores / 3.0 GHz / 220W TDP' },
-        { id: 'altra-max-m128', name: 'Ampere\u00ae Altra\u00ae Max M128-30', desc: '128 Cores / 3.0 GHz / 250W TDP' },
-    ],
-    'ampereone': [
-        { id: 'ampereone-a192', name: 'AmpereOne\u00ae A192-32X', desc: '192 Cores / 3.2 GHz / 350W TDP' },
-        { id: 'ampereone-a176', name: 'AmpereOne\u00ae A176-28X', desc: '176 Cores / 2.8 GHz / 300W TDP' },
-        { id: 'ampereone-a128', name: 'AmpereOne\u00ae A128-26X', desc: '128 Cores / 2.6 GHz / 250W TDP' },
-    ],
-};
+class ConfigSection {
+    /**
+     * @param {Object} params
+     * @param {string} params.key - Section key (e.g. 'cpu', 'dimm')
+     * @param {string} params.name - Display name (e.g. 'Processor (CPU)')
+     * @param {string} params.type - 'single' | 'multi' | 'optional'
+     * @param {Array} params.options - [{ id, name, desc, defaultQty, qtyEditable }]
+     */
+    constructor({ key, name, type, options }) {
+        this.key = key;
+        this.name = name;
+        this.type = type;
+        this.options = options;
+        this.selections = {}; // { optionId: qty (integer) }
+    }
 
-const dimmOptions = [
-    { id: 'ddr5-16', name: 'DDR5 16GB RDIMM', desc: '4800MHz / ECC Registered' },
-    { id: 'ddr5-32', name: 'DDR5 32GB RDIMM', desc: '4800MHz / ECC Registered' },
-    { id: 'ddr5-64', name: 'DDR5 64GB RDIMM', desc: '4800MHz / ECC Registered' },
-    { id: 'ddr5-128', name: 'DDR5 128GB RDIMM', desc: '4800MHz / ECC Registered / 3DS' },
-    { id: 'ddr5-256', name: 'DDR5 256GB RDIMM', desc: '4800MHz / ECC Registered / 3DS' },
-];
+    select(optionId) {
+        const opt = this.options.find(o => o.id === optionId);
+        if (!opt) return;
+        if (this.type === 'single') {
+            this.selections = {};
+            this.selections[optionId] = opt.defaultQty;
+        } else {
+            if (this.selections[optionId] !== undefined) {
+                delete this.selections[optionId];
+            } else {
+                this.selections[optionId] = opt.defaultQty;
+            }
+        }
+    }
 
-const lanCardOptions = [
-    { id: 'onboard', name: 'Onboard LAN (Built-in)', desc: 'Included with motherboard' },
-    { id: 'x710-2x10g', name: 'Intel\u00ae X710-DA2 10GbE SFP+', desc: '2-Port / PCIe 3.0 x8' },
-    { id: 'e810-2x25g', name: 'Intel\u00ae E810-XXVDA2 25GbE SFP28', desc: '2-Port / PCIe 4.0 x8' },
-    { id: 'cx6-2x25g', name: 'Mellanox ConnectX-6 Dx 25GbE', desc: '2-Port SFP28 / PCIe 4.0 x16' },
-    { id: 'cx7-2x100g', name: 'Mellanox ConnectX-7 100GbE QSFP56', desc: '2-Port / PCIe 5.0 x16' },
-    { id: 'bcm57414', name: 'Broadcom BCM57414 25GbE SFP28', desc: '2-Port / PCIe 3.0 x8' },
-];
+    deselect(optionId) {
+        delete this.selections[optionId];
+    }
 
-const raidCardOptions = [
-    { id: 'none', name: 'None (Software RAID / Pass-through)', desc: 'OS-based software RAID or HBA mode' },
-    { id: 'mr9560-8i', name: 'Broadcom MegaRAID 9560-8i', desc: '8-Port SAS/SATA / PCIe 4.0 / 4GB Cache' },
-    { id: 'mr9560-16i', name: 'Broadcom MegaRAID 9560-16i', desc: '16-Port SAS/SATA / PCIe 4.0 / 4GB Cache' },
-    { id: 'sr3200-8i', name: 'Microchip Adaptec SmartRAID 3200-8i', desc: '8-Port SAS/SATA / PCIe 4.0 / 4GB Cache' },
-    { id: 'mr9670-24i', name: 'Broadcom MegaRAID 9670-24i', desc: '24-Port SAS/NVMe / PCIe 5.0 / 8GB Cache' },
-];
+    setQty(optionId, qty) {
+        const opt = this.options.find(o => o.id === optionId);
+        if (!opt || !opt.qtyEditable) return;
+        if (this.selections[optionId] !== undefined) {
+            this.selections[optionId] = Math.max(0, parseInt(qty) || 0);
+        }
+    }
+
+    getSelections() {
+        return { ...this.selections };
+    }
+
+    getSummary() {
+        const entries = Object.entries(this.selections);
+        if (entries.length === 0) return 'Not selected';
+        return entries.map(([id, qty]) => {
+            const opt = this.options.find(o => o.id === id);
+            return opt ? (qty > 1 ? qty + '\u00d7 ' + opt.name : opt.name) : id;
+        }).join(', ');
+    }
+
+    isValid() {
+        if (this.type === 'optional') return true;
+        return Object.keys(this.selections).length > 0;
+    }
+
+    loadSelections(selections) {
+        this.selections = {};
+        if (selections && typeof selections === 'object') {
+            for (const [id, qty] of Object.entries(selections)) {
+                if (this.options.find(o => o.id === id)) {
+                    this.selections[id] = parseInt(qty) || 0;
+                }
+            }
+        }
+    }
+
+    render() {
+        const summary = this.getSummary();
+        const isOpen = Object.keys(this.selections).length === 0;
+        const typeLabel = this.type === 'single' ? 'Single' : this.type === 'multi' ? 'Multi' : 'Optional';
+        const inputType = this.type === 'single' ? 'radio' : 'checkbox';
+
+        let html = `<div class="config-section ${isOpen ? 'open' : ''}" data-key="${this.key}">
+            <div class="config-section-header" onclick="toggleSection(this)">
+                <span class="config-section-label">${this.name}</span>
+                <span class="config-section-type-badge config-type-${this.type}">${typeLabel}</span>
+                <span class="config-section-value" id="summary-${this.key}">${summary}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="config-section-chevron">
+                    <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule:evenodd;"/>
+                </svg>
+            </div>
+            <div class="config-section-body"><div class="config-option-list">`;
+
+        this.options.forEach(opt => {
+            const isSelected = this.selections[opt.id] !== undefined;
+            const qty = isSelected ? this.selections[opt.id] : opt.defaultQty;
+
+            if (this.type === 'single') {
+                html += `<label class="config-option ${isSelected ? 'selected' : ''}">
+                    <input type="radio" name="cfg-${this.key}" value="${opt.id}" ${isSelected ? 'checked' : ''} onchange="onSectionSelect('${this.key}','${opt.id}')">
+                    <span class="radio-dot"></span>
+                    <div class="config-option-text">
+                        <div class="config-option-name">${opt.name}</div>
+                        <div class="config-option-desc">${opt.desc}</div>
+                    </div>
+                    <div class="config-option-qty">
+                        <span class="qty-label">Qty:</span>
+                        <input type="number" class="qty-input" value="${qty}" min="0" ${!opt.qtyEditable ? 'disabled' : ''} onchange="onSectionQty('${this.key}','${opt.id}',this.value)" onclick="event.stopPropagation()">
+                    </div>
+                </label>`;
+            } else {
+                html += `<label class="config-option ${isSelected ? 'selected' : ''}">
+                    <input type="checkbox" name="cfg-${this.key}" value="${opt.id}" ${isSelected ? 'checked' : ''} onchange="onSectionSelect('${this.key}','${opt.id}')">
+                    <span class="checkbox-dot">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="8" fill="none" class="checkbox-check-icon">
+                            <path fill="#fff" fill-rule="evenodd" d="M9.218.304a1 1 0 0 1-.022 1.414l-5.187 5a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l1.117 1.052L7.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"/>
+                        </svg>
+                    </span>
+                    <div class="config-option-text">
+                        <div class="config-option-name">${opt.name}</div>
+                        <div class="config-option-desc">${opt.desc}</div>
+                    </div>
+                    <div class="config-option-qty">
+                        <span class="qty-label">Qty:</span>
+                        <input type="number" class="qty-input" value="${qty}" min="0" ${!opt.qtyEditable ? 'disabled' : ''} onchange="onSectionQty('${this.key}','${opt.id}',this.value)" onclick="event.stopPropagation()">
+                    </div>
+                </label>`;
+            }
+        });
+
+        html += '</div></div></div>';
+        return html;
+    }
+}
 
 // ============================================
-// XLSX Parsing (unchanged)
+// Build ConfigSection instances for a product
+// ============================================
+function createConfigSections(product) {
+    return configSectionDefs.map(def => {
+        // Skip DIMM section if product has no DIMM slots
+        if (def.key === 'dimm' && product.dimmSlots === 0) return null;
+
+        // Filter options that apply to this product (by cpuSeries or '*' for universal)
+        const filteredOptions = def.options.filter(opt => {
+            if (opt.appliesTo === '*') return true;
+            return opt.appliesTo === product.cpuSeries;
+        });
+
+        if (filteredOptions.length === 0) return null;
+
+        // Clone options and enrich DIMM descriptions with total memory
+        const clonedOptions = filteredOptions.map(opt => {
+            const clone = { id: opt.id, name: opt.name, desc: opt.desc, defaultQty: opt.defaultQty, qtyEditable: opt.qtyEditable };
+            if (def.key === 'dimm' && product.dimmSlots > 0) {
+                const match = opt.name.match(/(\d+)GB/);
+                if (match) {
+                    const gb = parseInt(match[1]);
+                    const total = gb * product.dimmSlots;
+                    const totalStr = total >= 1024 ? (total / 1024) + 'TB' : total + 'GB';
+                    clone.desc = opt.desc + ' / ' + product.dimmSlots + ' slots = ' + totalStr + ' Total';
+                }
+            }
+            return clone;
+        });
+
+        return new ConfigSection({ key: def.key, name: def.name, type: def.type, options: clonedOptions });
+    }).filter(Boolean);
+}
+
+// ============================================
+// XLSX Parsing
 // ============================================
 function parseXLSX(arrayBuffer) {
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -217,10 +312,39 @@ function parseFiltersXLSX(arrayBuffer) {
     return Array.from(categoryMap.values());
 }
 
+function parseConfigOptionsXLSX(arrayBuffer) {
+    const rows = parseXLSX(arrayBuffer);
+    const sectionMap = new Map();
+    rows.forEach(row => {
+        const key = String(row.section_key || '');
+        if (!key) return;
+        if (!sectionMap.has(key)) {
+            sectionMap.set(key, {
+                key,
+                name: String(row.section_name || ''),
+                type: String(row.section_type || 'single'),
+                options: []
+            });
+        }
+        sectionMap.get(key).options.push({
+            id: String(row.option_id || ''),
+            name: String(row.option_name || ''),
+            desc: String(row.option_desc || ''),
+            defaultQty: parseInt(row.default_qty) || 1,
+            qtyEditable: String(row.qty_editable).toLowerCase() === 'true',
+            appliesTo: String(row.applies_to || '*')
+        });
+    });
+    return Array.from(sectionMap.values());
+}
+
 async function loadData() {
-    const [productsResp, filtersResp] = await Promise.all([fetch('products.xlsx'), fetch('filters.xlsx')]);
+    const [productsResp, filtersResp, configResp] = await Promise.all([
+        fetch('products.xlsx'), fetch('filters.xlsx'), fetch('config_options.xlsx')
+    ]);
     products = parseProductsXLSX(await productsResp.arrayBuffer());
     filterCategories = parseFiltersXLSX(await filtersResp.arrayBuffer());
+    configSectionDefs = parseConfigOptionsXLSX(await configResp.arrayBuffer());
     init();
 }
 
@@ -260,12 +384,24 @@ function openConfigurator(productId, cartIndex) {
     selectedProduct = products.find(p => p.id === productId);
     if (!selectedProduct) return;
 
+    activeConfigSections = createConfigSections(selectedProduct);
+
     if (typeof cartIndex === 'number' && cartIndex >= 0) {
         editingCartIndex = cartIndex;
-        currentConfig = { ...cartItems[cartIndex].config };
+        const savedConfig = cartItems[cartIndex].config;
+        activeConfigSections.forEach(section => {
+            if (savedConfig[section.key]) {
+                // Handle legacy format: if value is a string, convert to { id: defaultQty }
+                const val = savedConfig[section.key];
+                if (typeof val === 'string' && val) {
+                    section.loadSelections({ [val]: 1 });
+                } else if (typeof val === 'object') {
+                    section.loadSelections(val);
+                }
+            }
+        });
     } else {
         editingCartIndex = -1;
-        currentConfig = { cpu: '', dimm: '', lanCard: '', raidCard: '' };
     }
 
     document.getElementById('config-toolbar-title').textContent = 'Configure: ' + productId;
@@ -544,86 +680,65 @@ function renderConfigPage() {
         </div>
     </div>`;
 
-    // CPU
-    html += buildConfigSection('cpu', 'Processor (CPU)', cpuOptions[p.cpuSeries] || [], currentConfig.cpu);
-
-    // DIMM
-    if (p.dimmSlots > 0) {
-        const dimmWithTotal = dimmOptions.map(d => {
-            const gb = parseInt(d.name.match(/(\d+)GB/)?.[1] || '0');
-            const total = gb * p.dimmSlots;
-            const totalStr = total >= 1024 ? (total / 1024) + 'TB' : total + 'GB';
-            return { ...d, desc: d.desc + ' / ' + p.dimmSlots + ' slots = ' + totalStr + ' Total' };
-        });
-        html += buildConfigSection('dimm', 'Memory (DIMM)', dimmWithTotal, currentConfig.dimm);
-    } else {
-        html += `<div class="config-section"><div class="config-section-header">
-            <span class="config-section-label">Memory (DIMM)</span>
-            <span class="config-section-value">Integrated Memory (No DIMM Slots)</span>
-        </div></div>`;
+    // Show integrated memory notice if no DIMM slots
+    if (p.dimmSlots === 0) {
+        const dimmDef = configSectionDefs.find(d => d.key === 'dimm');
+        if (dimmDef) {
+            html += `<div class="config-section"><div class="config-section-header">
+                <span class="config-section-label">${dimmDef.name}</span>
+                <span class="config-section-value">Integrated Memory (No DIMM Slots)</span>
+            </div></div>`;
+        }
     }
 
-    // LAN
-    html += buildConfigSection('lanCard', 'LAN Card', lanCardOptions, currentConfig.lanCard);
-
-    // RAID
-    html += buildConfigSection('raidCard', 'RAID Card', raidCardOptions, currentConfig.raidCard);
-
-    content.innerHTML = html;
-}
-
-function buildConfigSection(key, title, options, selectedValue) {
-    const selOpt = options.find(o => o.id === selectedValue);
-    const summary = selOpt ? selOpt.name : 'Not selected';
-    const isOpen = !selOpt; // auto-open if nothing selected
-
-    let html = `<div class="config-section ${isOpen ? 'open' : ''}" data-key="${key}">
-        <div class="config-section-header" onclick="toggleSection(this)">
-            <span class="config-section-label">${title}</span>
-            <span class="config-section-value" id="summary-${key}">${summary}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="config-section-chevron">
-                <path d="M2.29 7.29a.996.996 0 0 1 1.41 0l8.29 8.29 8.29-8.29a.996.996 0 1 1 1.41 1.41l-9 9a.996.996 0 0 1-1.41 0L2.29 8.71a.996.996 0 0 1 0-1.41Z" style="fill-rule:evenodd;"/>
-            </svg>
-        </div>
-        <div class="config-section-body"><div class="config-option-list">`;
-
-    options.forEach(opt => {
-        const checked = opt.id === selectedValue ? 'checked' : '';
-        html += `<label class="config-option ${checked ? 'selected' : ''}">
-            <input type="radio" name="cfg-${key}" value="${opt.id}" ${checked} onchange="onConfigChange('${key}','${opt.id}')">
-            <span class="radio-dot"></span>
-            <div class="config-option-text">
-                <div class="config-option-name">${opt.name}</div>
-                <div class="config-option-desc">${opt.desc}</div>
-            </div>
-        </label>`;
+    // Render all active config sections using ConfigSection.render()
+    activeConfigSections.forEach(section => {
+        html += section.render();
     });
 
-    html += '</div></div></div>';
-    return html;
+    content.innerHTML = html;
 }
 
 function toggleSection(headerEl) {
     headerEl.parentElement.classList.toggle('open');
 }
 
-function onConfigChange(key, value) {
-    currentConfig[key] = value;
-    const summary = document.getElementById('summary-' + key);
-    let opts;
-    if (key === 'cpu') opts = cpuOptions[selectedProduct.cpuSeries] || [];
-    else if (key === 'dimm') opts = dimmOptions;
-    else if (key === 'lanCard') opts = lanCardOptions;
-    else if (key === 'raidCard') opts = raidCardOptions;
-    const opt = opts ? opts.find(o => o.id === value) : null;
-    if (summary && opt) summary.textContent = opt.name;
+// ============================================
+// ConfigSection Event Handlers
+// ============================================
+function onSectionSelect(sectionKey, optionId) {
+    const section = activeConfigSections.find(s => s.key === sectionKey);
+    if (!section) return;
+    section.select(optionId);
+    updateSectionUI(section);
+}
 
-    const section = document.querySelector(`.config-section[data-key="${key}"]`);
-    if (section) {
-        section.querySelectorAll('.config-option').forEach(label => {
-            label.classList.toggle('selected', label.querySelector('input').value === value);
-        });
-    }
+function onSectionQty(sectionKey, optionId, value) {
+    const section = activeConfigSections.find(s => s.key === sectionKey);
+    if (!section) return;
+    section.setQty(optionId, value);
+    updateSectionUI(section);
+}
+
+function updateSectionUI(section) {
+    const summaryEl = document.getElementById('summary-' + section.key);
+    if (summaryEl) summaryEl.textContent = section.getSummary();
+
+    const sectionEl = document.querySelector(`.config-section[data-key="${section.key}"]`);
+    if (!sectionEl) return;
+
+    sectionEl.querySelectorAll('.config-option').forEach(label => {
+        const input = label.querySelector('input');
+        const optId = input.value;
+        const isSelected = section.selections[optId] !== undefined;
+        label.classList.toggle('selected', isSelected);
+        input.checked = isSelected;
+
+        const qtyInput = label.querySelector('.qty-input');
+        if (qtyInput && isSelected) {
+            qtyInput.value = section.selections[optId];
+        }
+    });
 }
 
 // ============================================
@@ -631,14 +746,16 @@ function onConfigChange(key, value) {
 // ============================================
 function cancelConfig() {
     editingCartIndex = -1;
-    currentConfig = { cpu: '', dimm: '', lanCard: '', raidCard: '' };
+    activeConfigSections = [];
     selectedProduct = null;
     navigateTo('main');
 }
 
 function saveDraft() {
     if (!selectedProduct) return;
-    const item = { productId: selectedProduct.id, config: { ...currentConfig }, status: 'draft', timestamp: new Date().toISOString() };
+    const config = {};
+    activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
+    const item = { productId: selectedProduct.id, config, status: 'draft', timestamp: new Date().toISOString() };
     if (editingCartIndex >= 0) cartItems[editingCartIndex] = item;
     else cartItems.push(item);
     persistCart();
@@ -648,13 +765,11 @@ function saveDraft() {
 
 function submitConfig() {
     if (!selectedProduct) return;
-    const hasCpu = !!currentConfig.cpu;
-    const hasDimm = selectedProduct.dimmSlots === 0 || !!currentConfig.dimm;
-    const hasLan = !!currentConfig.lanCard;
-    const hasRaid = !!currentConfig.raidCard;
-    if (!hasCpu || !hasDimm || !hasLan || !hasRaid) { alert('Please complete all configuration selections before submitting.'); return; }
-
-    const item = { productId: selectedProduct.id, config: { ...currentConfig }, status: 'confirmed', timestamp: new Date().toISOString() };
+    const allValid = activeConfigSections.every(s => s.isValid());
+    if (!allValid) { alert('Please complete all required configuration selections before submitting.'); return; }
+    const config = {};
+    activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
+    const item = { productId: selectedProduct.id, config, status: 'confirmed', timestamp: new Date().toISOString() };
     if (editingCartIndex >= 0) cartItems[editingCartIndex] = item;
     else cartItems.push(item);
     persistCart();
@@ -707,12 +822,21 @@ function renderCart() {
         const product = products.find(p => p.id === item.productId);
         if (!product) return;
         const gpuText = product.gpus > 0 ? product.gpus + '\u00d7 ' + getLabel(lm, 'gpuType', product.gpuType) : 'No GPU';
-        const cpuName = resolveOptName('cpu', product.cpuSeries, item.config.cpu);
-        const dimmName = product.dimmSlots > 0 ? resolveOptName('dimm', null, item.config.dimm) : 'Integrated';
-        const lanName = resolveOptName('lanCard', null, item.config.lanCard);
-        const raidName = resolveOptName('raidCard', null, item.config.raidCard);
         const statusCls = item.status === 'confirmed' ? 'badge-confirmed' : 'badge-draft';
         const statusTxt = item.status === 'confirmed' ? 'Confirmed' : 'Draft';
+
+        // Build config table rows dynamically from section definitions
+        let configRows = '';
+        configSectionDefs.forEach(def => {
+            const val = item.config[def.key];
+            let displayText;
+            if (def.key === 'dimm' && product.dimmSlots === 0) {
+                displayText = 'Integrated';
+            } else {
+                displayText = resolveConfigSummary(def.key, val);
+            }
+            configRows += `<tr><td class="cart-cfg-label">${def.name}</td><td>${displayText}</td></tr>`;
+        });
 
         html += `<div class="cart-item">
             <div class="cart-item-top">
@@ -734,10 +858,7 @@ function renderCart() {
                 <span style="font-size:11px;color:#64748b;">${gpuText}</span>
             </div>
             <table class="cart-config-table">
-                <tr><td class="cart-cfg-label">CPU</td><td>${cpuName}</td></tr>
-                <tr><td class="cart-cfg-label">Memory</td><td>${dimmName}</td></tr>
-                <tr><td class="cart-cfg-label">LAN Card</td><td>${lanName}</td></tr>
-                <tr><td class="cart-cfg-label">RAID Card</td><td>${raidName}</td></tr>
+                ${configRows}
             </table>
             <div class="cart-item-time">Updated: ${new Date(item.timestamp).toLocaleString()}</div>
         </div>`;
@@ -746,16 +867,28 @@ function renderCart() {
     content.innerHTML = html;
 }
 
-function resolveOptName(key, cpuSeries, optionId) {
-    if (!optionId) return '<em style="color:#94a3b8;">Not selected</em>';
-    let opts;
-    if (key === 'cpu') opts = cpuOptions[cpuSeries] || [];
-    else if (key === 'dimm') opts = dimmOptions;
-    else if (key === 'lanCard') opts = lanCardOptions;
-    else if (key === 'raidCard') opts = raidCardOptions;
-    else return optionId;
-    const o = opts.find(x => x.id === optionId);
-    return o ? o.name : optionId;
+function resolveConfigSummary(sectionKey, selections) {
+    // Handle missing or empty selections
+    if (!selections || (typeof selections === 'object' && Object.keys(selections).length === 0)) {
+        return '<em style="color:#94a3b8;">Not selected</em>';
+    }
+    // Handle legacy string format
+    if (typeof selections === 'string') {
+        const def = configSectionDefs.find(d => d.key === sectionKey);
+        if (def) {
+            const opt = def.options.find(o => o.id === selections);
+            return opt ? opt.name : selections;
+        }
+        return selections;
+    }
+    // New object format { optionId: qty }
+    const def = configSectionDefs.find(d => d.key === sectionKey);
+    if (!def) return JSON.stringify(selections);
+    return Object.entries(selections).map(([optId, qty]) => {
+        const opt = def.options.find(o => o.id === optId);
+        const name = opt ? opt.name : optId;
+        return qty > 1 ? qty + '\u00d7 ' + name : name;
+    }).join(', ');
 }
 
 // ============================================
