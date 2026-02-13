@@ -396,15 +396,12 @@ function createConfigSections(product) {
 // ============================================
 // XLSX Parsing
 // ============================================
-function parseXLSX(arrayBuffer) {
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
+function sheetToRows(workbook, sheetName) {
     const sheet = workbook.Sheets[sheetName];
     return XLSX.utils.sheet_to_json(sheet, { defval: '' });
 }
 
-function parseProductsXLSX(arrayBuffer) {
-    const rows = parseXLSX(arrayBuffer);
+function parseProducts(rows) {
     return rows.map(row => ({
         id: String(row.id || ''),
         platform: String(row.platform || ''),
@@ -421,8 +418,7 @@ function parseProductsXLSX(arrayBuffer) {
     }));
 }
 
-function parseFiltersXLSX(arrayBuffer) {
-    const rows = parseXLSX(arrayBuffer);
+function parseFilters(rows) {
     const categoryMap = new Map();
     rows.forEach(row => {
         const key = String(row.category_key || '');
@@ -434,8 +430,7 @@ function parseFiltersXLSX(arrayBuffer) {
     return Array.from(categoryMap.values());
 }
 
-function parseConfigOptionsXLSX(arrayBuffer) {
-    const rows = parseXLSX(arrayBuffer);
+function parseConfigOptions(rows) {
     const sectionMap = new Map();
     rows.forEach(row => {
         const key = String(row.section_key || '');
@@ -462,12 +457,11 @@ function parseConfigOptionsXLSX(arrayBuffer) {
 }
 
 async function loadData() {
-    const [productsResp, filtersResp, configResp] = await Promise.all([
-        fetch('products.xlsx'), fetch('filters.xlsx'), fetch('config_options.xlsx')
-    ]);
-    products = parseProductsXLSX(await productsResp.arrayBuffer());
-    filterCategories = parseFiltersXLSX(await filtersResp.arrayBuffer());
-    configSectionDefs = parseConfigOptionsXLSX(await configResp.arrayBuffer());
+    const resp = await fetch('data.xlsx');
+    const workbook = XLSX.read(await resp.arrayBuffer(), { type: 'array' });
+    products = parseProducts(sheetToRows(workbook, 'Products'));
+    filterCategories = parseFilters(sheetToRows(workbook, 'Filters'));
+    configSectionDefs = parseConfigOptions(sheetToRows(workbook, 'ConfigOptions'));
     init();
 }
 
