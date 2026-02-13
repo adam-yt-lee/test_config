@@ -791,6 +791,101 @@
 .cart-item-time { font-size: 11px; color: #94a3b8; text-align: right; }
 
 /* ============================================
+   PCIe Slot Panel
+   ============================================ */
+.pcie-slot-section {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+}
+.pcie-slot-section.pcie-has-warnings {
+    border-color: #fbbf24;
+    background: #fffbeb;
+}
+.pcie-slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.pcie-slot-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+.pcie-slot-count {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+.pcie-warnings {
+    margin-bottom: 12px;
+}
+.pcie-warning-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #b45309;
+    font-weight: 500;
+    padding: 6px 10px;
+    background: #fef3c7;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+.pcie-slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+.pcie-slot-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: #fff;
+}
+.pcie-slot-item.pcie-slot-occupied {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+.pcie-slot-item.pcie-slot-empty {
+    border-color: #e2e8f0;
+    background: #fff;
+}
+.pcie-slot-item.pcie-slot-overflow {
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+.pcie-slot-type {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+.pcie-slot-overflow .pcie-slot-type {
+    color: #dc2626;
+}
+.pcie-slot-label {
+    font-size: 12px;
+    color: #334155;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pcie-slot-empty .pcie-slot-label {
+    color: #94a3b8;
+    font-style: italic;
+}
+.pcie-slot-overflow .pcie-slot-label {
+    color: #dc2626;
+}
+
+/* ============================================
    Responsive
    ============================================ */
 @media (max-width: 900px) {

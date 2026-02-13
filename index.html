@@ -238,6 +238,127 @@ class ConfigSection {
 }
 
 // ============================================
+// PCIe Slot Compatibility Engine
+// ============================================
+
+/**
+ * Slot compatibility: which card interfaces can fit in which slot types.
+ * PCIe x16 double width slot → PCIe x16 double width, PCIe x16, PCIe x8
+ * PCIe x16 slot → PCIe x16, PCIe x8
+ * PCIe x8 slot → PCIe x8
+ * OCP3.0 x16 slot → OCP3.0 x16, OCP3.0 x8
+ * OCP3.0 x8 slot → OCP3.0 x8
+ */
+const SLOT_ACCEPTS = {
+    'PCIe x16 double width': ['PCIe x16 double width', 'PCIe x16', 'PCIe x8'],
+    'PCIe x16': ['PCIe x16', 'PCIe x8'],
+    'PCIe x8': ['PCIe x8'],
+    'OCP3.0 x16': ['OCP3.0 x16', 'OCP3.0 x8'],
+    'OCP3.0 x8': ['OCP3.0 x8'],
+};
+
+/** Priority for card interfaces: more restrictive = higher priority (assigned first). */
+const INTERFACE_PRIORITY = {
+    'PCIe x16 double width': 0,
+    'OCP3.0 x16': 1,
+    'OCP3.0 x8': 2,
+    'PCIe x16': 3,
+    'PCIe x8': 4,
+};
+
+/** Slot "size" for greedy assignment: prefer using the smallest compatible slot. */
+const SLOT_SIZE = {
+    'OCP3.0 x8': 0,
+    'OCP3.0 x16': 1,
+    'PCIe x8': 2,
+    'PCIe x16': 3,
+    'PCIe x16 double width': 4,
+};
+
+/**
+ * Validate PCIe slot assignments for a product given current card selections.
+ * @param {Object} product - The server product with pcieSlots array.
+ * @param {Array} activeConfigSections - Current ConfigSection instances.
+ * @returns {{ assignments: Array, unassigned: Array, slotStatus: Array, warnings: Array }}
+ */
+function validatePcieSlots(product, sections) {
+    // Collect all cards that need a PCIe/OCP slot
+    const cardRequests = [];
+    sections.forEach(section => {
+        for (const [optId, qty] of Object.entries(section.selections)) {
+            const opt = section.options.find(o => o.id === optId);
+            if (!opt || !opt.pcieInterface) continue; // skip cards with no interface (onboard, none)
+            for (let i = 0; i < qty; i++) {
+                cardRequests.push({
+                    sectionKey: section.key,
+                    optionId: optId,
+                    name: opt.name,
+                    iface: opt.pcieInterface,
+                });
+            }
+        }
+    });
+
+    // 1U RAID BBU rule: if product is 1U and a RAID card is selected, add BBU x8 requirement
+    const is1U = product.formFactor === '1u';
+    const hasRaid = sections.some(s => s.key === 'raidCard' && Object.keys(s.selections).some(id => id !== 'none'));
+    if (is1U && hasRaid) {
+        cardRequests.push({
+            sectionKey: 'raidCard',
+            optionId: '_bbu',
+            name: 'RAID BBU (1U)',
+            iface: 'PCIe x8',
+        });
+    }
+
+    // Build available slot list (each slot tracked individually)
+    const slots = product.pcieSlots.map((type, idx) => ({
+        index: idx,
+        type: type,
+        assigned: null, // will hold card info if assigned
+    }));
+
+    // Sort cards: most restrictive interface first
+    const sortedCards = [...cardRequests].sort((a, b) =>
+        (INTERFACE_PRIORITY[a.iface] ?? 99) - (INTERFACE_PRIORITY[b.iface] ?? 99)
+    );
+
+    const assignments = [];
+    const unassigned = [];
+
+    for (const card of sortedCards) {
+        // Find compatible unoccupied slots, prefer smallest compatible slot
+        const compatibleSlots = slots
+            .filter(s => !s.assigned && SLOT_ACCEPTS[s.type] && SLOT_ACCEPTS[s.type].includes(card.iface))
+            .sort((a, b) => (SLOT_SIZE[a.type] ?? 99) - (SLOT_SIZE[b.type] ?? 99));
+
+        if (compatibleSlots.length > 0) {
+            const slot = compatibleSlots[0];
+            slot.assigned = card;
+            assignments.push({ slot: slot, card: card });
+        } else {
+            unassigned.push(card);
+        }
+    }
+
+    // Build warnings
+    const warnings = [];
+    if (unassigned.length > 0) {
+        const names = unassigned.map(c => c.name).join(', ');
+        warnings.push(`Not enough compatible PCIe slots for: ${names}`);
+    }
+
+    return {
+        assignments,
+        unassigned,
+        slotStatus: slots,
+        warnings,
+        totalCards: cardRequests.length,
+        totalSlots: slots.length,
+    };
+}
+
+// ============================================
 // Build ConfigSection instances for a product
 // ============================================
 function createConfigSections(product) {
@@ -255,7 +376,7 @@ function createConfigSections(product) {
 
         // Clone options and enrich DIMM descriptions with total memory
         const clonedOptions = filteredOptions.map(opt => {
-            const clone = { id: opt.id, name: opt.name, desc: opt.desc, defaultQty: opt.defaultQty, qtyEditable: opt.qtyEditable };
+            const clone = { id: opt.id, name: opt.name, desc: opt.desc, defaultQty: opt.defaultQty, qtyEditable: opt.qtyEditable, pcieInterface: opt.pcieInterface || '' };
             if (def.key === 'dimm' && product.dimmSlots > 0) {
                 const match = opt.name.match(/(\d+)GB/);
                 if (match) {
@@ -295,7 +416,8 @@ function parseProductsXLSX(arrayBuffer) {
         gpus: parseInt(row.gpus, 10) || 0,
         dimmSlots: parseInt(row.dimmSlots, 10) || 0,
         lanSpeed: String(row.lanSpeed || ''),
-        application: row.application ? String(row.application).split('|') : []
+        application: row.application ? String(row.application).split('|') : [],
+        pcieSlots: row.pcieSlots ? String(row.pcieSlots).split('|').map(s => s.trim()).filter(Boolean) : []
     }));
 }
 
@@ -332,7 +454,8 @@ function parseConfigOptionsXLSX(arrayBuffer) {
             desc: String(row.option_desc || ''),
             defaultQty: parseInt(row.default_qty) || 1,
             qtyEditable: String(row.qty_editable).toLowerCase() === 'true',
-            appliesTo: String(row.applies_to || '*')
+            appliesTo: String(row.applies_to || '*'),
+            pcieInterface: String(row.pcie_interface || '')
         });
     });
     return Array.from(sectionMap.values());
@@ -696,7 +819,57 @@ function renderConfigPage() {
         html += section.render();
     });
 
+    // PCIe Slot Usage panel
+    html += `<div id="pcie-slot-panel"></div>`;
+
     content.innerHTML = html;
+    renderPcieSlotPanel();
+}
+
+function renderPcieSlotPanel() {
+    const panel = document.getElementById('pcie-slot-panel');
+    if (!panel || !selectedProduct) return;
+
+    const result = validatePcieSlots(selectedProduct, activeConfigSections);
+    const hasWarnings = result.warnings.length > 0;
+
+    let html = `<div class="pcie-slot-section ${hasWarnings ? 'pcie-has-warnings' : ''}">
+        <div class="pcie-slot-header">
+            <span class="pcie-slot-title">PCIe Slot Usage</span>
+            <span class="pcie-slot-count">${result.totalCards} / ${result.totalSlots} slots used</span>
+        </div>`;
+
+    if (hasWarnings) {
+        html += `<div class="pcie-warnings">`;
+        result.warnings.forEach(w => {
+            html += `<div class="pcie-warning-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                ${w}
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += `<div class="pcie-slot-grid">`;
+    result.slotStatus.forEach((slot, idx) => {
+        const occupied = slot.assigned !== null;
+        const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
+        html += `<div class="pcie-slot-item ${statusClass}">
+            <div class="pcie-slot-type">${slot.type}</div>
+            <div class="pcie-slot-label">${occupied ? slot.assigned.name : 'Empty'}</div>
+        </div>`;
+    });
+
+    // Show unassigned cards
+    result.unassigned.forEach(card => {
+        html += `<div class="pcie-slot-item pcie-slot-overflow">
+            <div class="pcie-slot-type">No slot</div>
+            <div class="pcie-slot-label">${card.name}</div>
+        </div>`;
+    });
+
+    html += `</div></div>`;
+    panel.innerHTML = html;
 }
 
 function toggleSection(headerEl) {
@@ -739,6 +912,11 @@ function updateSectionUI(section) {
             qtyInput.value = section.selections[optId];
         }
     });
+
+    // Re-validate PCIe slot usage whenever card selections change
+    if (section.key === 'lanCard' || section.key === 'raidCard') {
+        renderPcieSlotPanel();
+    }
 }
 
 // ============================================
@@ -767,6 +945,12 @@ function submitConfig() {
     if (!selectedProduct) return;
     const allValid = activeConfigSections.every(s => s.isValid());
     if (!allValid) { alert('Please complete all required configuration selections before submitting.'); return; }
+    const pcieResult = validatePcieSlots(selectedProduct, activeConfigSections);
+    if (pcieResult.unassigned.length > 0) {
+        const names = pcieResult.unassigned.map(c => c.name).join(', ');
+        alert('PCIe slot conflict: not enough compatible slots for: ' + names + '. Please adjust your card selections.');
+        return;
+    }
     const config = {};
     activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
     const item = { productId: selectedProduct.id, config, status: 'confirmed', timestamp: new Date().toISOString() };
