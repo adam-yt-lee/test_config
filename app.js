@@ -98,21 +98,7 @@ class ConfigSection {
             const isSelected = this.selections[opt.id] !== undefined;
             const qty = isSelected ? this.selections[opt.id] : opt.defaultQty;
 
-            if (this.type === 'single') {
-                html += `<label class="config-option ${isSelected ? 'selected' : ''}">
-                    <input type="radio" name="cfg-${this.key}" value="${opt.id}" ${isSelected ? 'checked' : ''} onchange="onSectionSelect('${this.key}','${opt.id}')">
-                    <span class="radio-dot"></span>
-                    <div class="config-option-text">
-                        <div class="config-option-name">${opt.name}</div>
-                        <div class="config-option-desc">${opt.desc}</div>
-                    </div>
-                    <div class="config-option-qty">
-                        <span class="qty-label">Qty:</span>
-                        <input type="number" class="qty-input" value="${qty}" min="0" ${!opt.qtyEditable ? 'disabled' : ''} onchange="onSectionQty('${this.key}','${opt.id}',this.value)" onclick="event.stopPropagation()">
-                    </div>
-                </label>`;
-            } else {
-                html += `<label class="config-option ${isSelected ? 'selected' : ''}">
+            html += `<label class="config-option ${isSelected ? 'selected' : ''}">
                     <input type="checkbox" name="cfg-${this.key}" value="${opt.id}" ${isSelected ? 'checked' : ''} onchange="onSectionSelect('${this.key}','${opt.id}')">
                     <span class="checkbox-dot">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="8" fill="none" class="checkbox-check-icon">
@@ -128,7 +114,6 @@ class ConfigSection {
                         <input type="number" class="qty-input" value="${qty}" min="0" ${!opt.qtyEditable ? 'disabled' : ''} onchange="onSectionQty('${this.key}','${opt.id}',this.value)" onclick="event.stopPropagation()">
                     </div>
                 </label>`;
-            }
         });
 
         html += '</div></div></div>';
