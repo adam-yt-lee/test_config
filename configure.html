@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Server Configurator - Configure</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</head>
+<body>
+    <div class="configurator-wrapper">
+        <div class="configurator-header">
+            <div class="header-content">
+                <div>
+                    <h1>Advanced Server Configurator</h1>
+                    <p>Multi-Layer Filter System - Select options to narrow down compatible configurations</p>
+                </div>
+                <button class="cart-icon-btn" onclick="window.location.href='cart.html'" title="Shopping Cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
+                        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                    <span class="cart-badge" id="cart-badge">0</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="configurator-body">
+            <div id="page-configure" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                <div class="page-toolbar">
+                    <button class="toolbar-back-btn" onclick="window.location.href='index.html'">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        Back to Results
+                    </button>
+                    <span class="toolbar-title" id="config-toolbar-title"></span>
+                </div>
+                <div class="page-scroll-area" id="config-content">
+                    <div class="loading-indicator">Loading configuration...</div>
+                </div>
+                <div class="page-action-bar">
+                    <button class="btn btn-cancel" onclick="cancelConfig()">Cancel</button>
+                    <button class="btn btn-draft" onclick="saveDraft()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                        Save Draft
+                    </button>
+                    <button class="btn btn-submit" onclick="submitConfig()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                        Submit
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ============================================
+// Parse URL Parameters
+// ============================================
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        productId: params.get('product'),
+        editIndex: params.get('edit') !== null ? parseInt(params.get('edit')) : -1
+    };
+}
+
+// ============================================
+// Initialize Configure Page
+// ============================================
+function initConfigure() {
+    updateCartBadge();
+    const params = getUrlParams();
+    if (!params.productId) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    selectedProduct = products.find(p => p.id === params.productId);
+    if (!selectedProduct) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    activeConfigSections = createConfigSections(selectedProduct);
+
+    if (params.editIndex >= 0 && cartItems[params.editIndex]) {
+        editingCartIndex = params.editIndex;
+        const savedConfig = cartItems[params.editIndex].config;
+        activeConfigSections.forEach(section => {
+            if (savedConfig[section.key]) {
+                const val = savedConfig[section.key];
+                if (typeof val === 'string' && val) {
+                    section.loadSelections({ [val]: 1 });
+                } else if (typeof val === 'object') {
+                    section.loadSelections(val);
+                }
+            }
+        });
+    } else {
+        editingCartIndex = -1;
+    }
+
+    document.getElementById('config-toolbar-title').textContent = 'Configure: ' + params.productId;
+    renderConfigPage();
+}
+
+// ============================================
+// Configuration Page Rendering
+// ============================================
+function renderConfigPage() {
+    const content = document.getElementById('config-content');
+    const lm = buildLabelMap();
+    const p = selectedProduct;
+    const gpuText = p.gpus > 0 ? p.gpus + '\u00d7 ' + getLabel(lm, 'gpuType', p.gpuType) : 'No GPU';
+
+    let html = `<div class="config-summary-card">
+        <div class="config-summary-name">${p.id}</div>
+        <div class="config-summary-badges">
+            <span class="result-badge platform">${getLabel(lm, 'platform', p.platform)}</span>
+            <span class="result-badge vendor">${getLabel(lm, 'vendor', p.vendor)}</span>
+            <span class="result-badge form-factor">${getLabel(lm, 'formFactor', p.formFactor)}</span>
+            <span class="result-badge cooling">${getLabel(lm, 'cooling', p.cooling)}</span>
+        </div>
+        <div class="config-summary-detail">
+            ${getLabel(lm, 'cpuSeries', p.cpuSeries)} &middot; ${gpuText} &middot; ${p.dimmSlots} DIMM Slots &middot; ${getLabel(lm, 'lanSpeed', p.lanSpeed)}
+        </div>
+    </div>`;
+
+    if (p.dimmSlots === 0) {
+        const dimmDef = configSectionDefs.find(d => d.key === 'dimm');
+        if (dimmDef) {
+            html += `<div class="config-section"><div class="config-section-header">
+                <span class="config-section-label">${dimmDef.name}</span>
+                <span class="config-section-value">Integrated Memory (No DIMM Slots)</span>
+            </div></div>`;
+        }
+    }
+
+    activeConfigSections.forEach(section => {
+        html += section.render();
+    });
+
+    html += `<div id="pcie-slot-panel"></div>`;
+
+    content.innerHTML = html;
+    renderPcieSlotPanel();
+}
+
+function renderPcieSlotPanel() {
+    const panel = document.getElementById('pcie-slot-panel');
+    if (!panel || !selectedProduct) return;
+
+    const result = validatePcieSlots(selectedProduct, activeConfigSections);
+    const hasWarnings = result.warnings.length > 0;
+
+    let html = `<div class="pcie-slot-section ${hasWarnings ? 'pcie-has-warnings' : ''}">
+        <div class="pcie-slot-header">
+            <span class="pcie-slot-title">PCIe Slot Usage</span>
+            <span class="pcie-slot-count">${result.totalCards} / ${result.totalSlots} slots used</span>
+        </div>`;
+
+    if (hasWarnings) {
+        html += `<div class="pcie-warnings">`;
+        result.warnings.forEach(w => {
+            html += `<div class="pcie-warning-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                ${w}
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += `<div class="pcie-slot-grid">`;
+    result.slotStatus.forEach((slot, idx) => {
+        const occupied = slot.assigned !== null;
+        const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
+        html += `<div class="pcie-slot-item ${statusClass}">
+            <div class="pcie-slot-type">${slot.type}</div>
+            <div class="pcie-slot-label">${occupied ? slot.assigned.name : 'Empty'}</div>
+        </div>`;
+    });
+
+    result.unassigned.forEach(card => {
+        html += `<div class="pcie-slot-item pcie-slot-overflow">
+            <div class="pcie-slot-type">No slot</div>
+            <div class="pcie-slot-label">${card.name}</div>
+        </div>`;
+    });
+
+    html += `</div></div>`;
+    panel.innerHTML = html;
+}
+
+function toggleSection(headerEl) {
+    headerEl.parentElement.classList.toggle('open');
+}
+
+// ============================================
+// ConfigSection Event Handlers
+// ============================================
+function onSectionSelect(sectionKey, optionId) {
+    const section = activeConfigSections.find(s => s.key === sectionKey);
+    if (!section) return;
+    section.select(optionId);
+    updateSectionUI(section);
+}
+
+function onSectionQty(sectionKey, optionId, value) {
+    const section = activeConfigSections.find(s => s.key === sectionKey);
+    if (!section) return;
+    section.setQty(optionId, value);
+    updateSectionUI(section);
+}
+
+function updateSectionUI(section) {
+    const summaryEl = document.getElementById('summary-' + section.key);
+    if (summaryEl) summaryEl.textContent = section.getSummary();
+
+    const sectionEl = document.querySelector(`.config-section[data-key="${section.key}"]`);
+    if (!sectionEl) return;
+
+    sectionEl.querySelectorAll('.config-option').forEach(label => {
+        const input = label.querySelector('input');
+        const optId = input.value;
+        const isSelected = section.selections[optId] !== undefined;
+        label.classList.toggle('selected', isSelected);
+        input.checked = isSelected;
+
+        const qtyInput = label.querySelector('.qty-input');
+        if (qtyInput && isSelected) {
+            qtyInput.value = section.selections[optId];
+        }
+    });
+
+    if (section.key === 'lanCard' || section.key === 'raidCard') {
+        renderPcieSlotPanel();
+    }
+}
+
+// ============================================
+// Config Actions
+// ============================================
+function cancelConfig() {
+    editingCartIndex = -1;
+    activeConfigSections = [];
+    selectedProduct = null;
+    window.location.href = 'index.html';
+}
+
+function saveDraft() {
+    if (!selectedProduct) return;
+    const config = {};
+    activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
+    const item = { productId: selectedProduct.id, config, status: 'draft', timestamp: new Date().toISOString() };
+    if (editingCartIndex >= 0) cartItems[editingCartIndex] = item;
+    else cartItems.push(item);
+    persistCart();
+    editingCartIndex = -1;
+    window.location.href = 'index.html';
+}
+
+function submitConfig() {
+    if (!selectedProduct) return;
+    const allValid = activeConfigSections.every(s => s.isValid());
+    if (!allValid) { alert('Please complete all required configuration selections before submitting.'); return; }
+    const pcieResult = validatePcieSlots(selectedProduct, activeConfigSections);
+    if (pcieResult.unassigned.length > 0) {
+        const names = pcieResult.unassigned.map(c => c.name).join(', ');
+        alert('PCIe slot conflict: not enough compatible slots for: ' + names + '. Please adjust your card selections.');
+        return;
+    }
+    const config = {};
+    activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
+    const item = { productId: selectedProduct.id, config, status: 'confirmed', timestamp: new Date().toISOString() };
+    if (editingCartIndex >= 0) cartItems[editingCartIndex] = item;
+    else cartItems.push(item);
+    persistCart();
+    editingCartIndex = -1;
+    window.location.href = 'cart.html';
+}
+
+// ============================================
+// Start
+// ============================================
+loadData(initConfigure);
+</script>
+</body>
+</html>
