@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Server Configurator - Shopping Cart</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</head>
+<body>
+    <div class="configurator-wrapper">
+        <div class="configurator-header">
+            <div class="header-content">
+                <div>
+                    <h1>Advanced Server Configurator</h1>
+                    <p>Multi-Layer Filter System - Select options to narrow down compatible configurations</p>
+                </div>
+                <button class="cart-icon-btn" onclick="window.location.href='cart.html'" title="Shopping Cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
+                        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                    <span class="cart-badge" id="cart-badge">0</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="configurator-body">
+            <div id="page-cart" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                <div class="page-toolbar">
+                    <button class="toolbar-back-btn" onclick="window.location.href='index.html'">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        Back to Results
+                    </button>
+                    <span class="toolbar-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                        Shopping Cart
+                    </span>
+                </div>
+                <div class="page-scroll-area" id="cart-content">
+                    <div class="loading-indicator">Loading cart...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ============================================
+// Initialize Cart Page
+// ============================================
+function initCart() {
+    updateCartBadge();
+    renderCart();
+}
+
+// ============================================
+// Cart Rendering
+// ============================================
+function renderCart() {
+    const content = document.getElementById('cart-content');
+    if (cartItems.length === 0) {
+        content.innerHTML = `<div class="cart-empty">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="56" height="56" fill="#cbd5e1">
+                <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+            </svg>
+            <p style="font-size:15px;font-weight:600;color:#475569;margin:12px 0 4px;">Your cart is empty</p>
+            <p style="font-size:13px;color:#94a3b8;margin:0;">Configure a server model and save it to your cart.</p>
+            <button class="btn btn-submit" onclick="window.location.href='index.html'" style="margin-top:16px;">Browse Models</button>
+        </div>`;
+        return;
+    }
+
+    const lm = buildLabelMap();
+    const confirmed = cartItems.filter(i => i.status === 'confirmed').length;
+    const drafts = cartItems.filter(i => i.status === 'draft').length;
+
+    let html = `<div class="cart-stats">
+        <span>${cartItems.length} item(s)</span>
+        <span><span style="color:#16a34a;font-weight:500;">${confirmed} confirmed</span> &middot; <span style="color:#d97706;font-weight:500;">${drafts} draft(s)</span></span>
+    </div>`;
+
+    cartItems.forEach((item, i) => {
+        const product = products.find(p => p.id === item.productId);
+        if (!product) return;
+        const gpuText = product.gpus > 0 ? product.gpus + '\u00d7 ' + getLabel(lm, 'gpuType', product.gpuType) : 'No GPU';
+        const statusCls = item.status === 'confirmed' ? 'badge-confirmed' : 'badge-draft';
+        const statusTxt = item.status === 'confirmed' ? 'Confirmed' : 'Draft';
+
+        let configRows = '';
+        configSectionDefs.forEach(def => {
+            const val = item.config[def.key];
+            let displayText;
+            if (def.key === 'dimm' && product.dimmSlots === 0) {
+                displayText = 'Integrated';
+            } else {
+                displayText = resolveConfigSummary(def.key, val);
+            }
+            configRows += `<tr><td class="cart-cfg-label">${def.name}</td><td>${displayText}</td></tr>`;
+        });
+
+        html += `<div class="cart-item">
+            <div class="cart-item-top">
+                <div class="cart-item-title">
+                    <strong>${item.productId}</strong>
+                    <span class="cart-status-badge ${statusCls}">${statusTxt}</span>
+                </div>
+                <div class="cart-item-actions">
+                    ${item.status === 'draft' ? `<button class="cart-btn-icon cart-btn-confirm" onclick="confirmCartItem(${i})" title="Confirm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>` : ''}
+                    <button class="cart-btn-icon cart-btn-edit" onclick="editCartItem(${i})" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+                    <button class="cart-btn-icon cart-btn-del" onclick="removeCartItem(${i})" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+                </div>
+            </div>
+            <div class="cart-item-badges">
+                <span class="result-badge platform">${getLabel(lm, 'platform', product.platform)}</span>
+                <span class="result-badge vendor">${getLabel(lm, 'vendor', product.vendor)}</span>
+                <span class="result-badge form-factor">${getLabel(lm, 'formFactor', product.formFactor)}</span>
+                <span class="result-badge cooling">${getLabel(lm, 'cooling', product.cooling)}</span>
+                <span style="font-size:11px;color:#64748b;">${gpuText}</span>
+            </div>
+            <table class="cart-config-table">
+                ${configRows}
+            </table>
+            <div class="cart-item-time">Updated: ${new Date(item.timestamp).toLocaleString()}</div>
+        </div>`;
+    });
+
+    content.innerHTML = html;
+}
+
+// ============================================
+// Cart Actions
+// ============================================
+function removeCartItem(index) {
+    cartItems.splice(index, 1);
+    persistCart();
+    renderCart();
+}
+
+function editCartItem(index) {
+    const item = cartItems[index];
+    window.location.href = 'configure.html?product=' + encodeURIComponent(item.productId) + '&edit=' + index;
+}
+
+function confirmCartItem(index) {
+    cartItems[index].status = 'confirmed';
+    cartItems[index].timestamp = new Date().toISOString();
+    persistCart();
+    renderCart();
+}
+
+// ============================================
+// Start
+// ============================================
+loadData(initCart);
+</script>
+</body>
+</html>
