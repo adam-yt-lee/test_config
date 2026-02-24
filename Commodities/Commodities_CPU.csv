@@ -1,0 +1,86 @@
+Brand,section_key,section_name,section type,Sub.Group,MPN,Cores,Threads,Frequency(GHz)
+Intel,CPU,,,Emerald Rapids,8580,60,120,2
+Intel,CPU,,,Emerald Rapids,8570,56,112,2.1
+Intel,CPU,,,Emerald Rapids,8558,48,96,2.1
+Intel,CPU,,,Emerald Rapids,6548Y+,32,64,2.5
+Intel,CPU,,,Emerald Rapids,6538Y+,32,64,2.2
+Intel,CPU,,,Emerald Rapids,6530,32,64,2.1
+Intel,CPU,,,Emerald Rapids,4510,12,24,2.4
+Intel,CPU,,,Emerald Rapids,6542Y,24,48,2.9
+Intel,CPU,,,Granite Rapids AP,6980P,128,256,2
+Intel,CPU,,,Granite Rapids AP,6979P,120,240,2.1
+Intel,CPU,,,Granite Rapids AP,6972P,96,192,2.4
+Intel,CPU,,,Granite Rapids AP,6952P,96,192,2.1
+Intel,CPU,,,Granite Rapids AP,6960P,72,144,2.7
+Intel,CPU,,,Granite Rapids SP,6788P,86,172,2
+Intel,CPU,,,Granite Rapids SP,6787P,86,172,2
+Intel,CPU,,,Granite Rapids SP,6781P,80,160,2
+Intel,CPU,,,Granite Rapids SP,6768P,64,128,2.4
+Intel,CPU,,,Granite Rapids SP,6776P,64,128,2.3
+Intel,CPU,,,Granite Rapids SP,6767P,64,128,2.4
+Intel,CPU,,,Granite Rapids SP,6761P,64,128,2.5
+Intel,CPU,,,Granite Rapids SP,6760P,64,128,2.2
+Intel,CPU,,,Granite Rapids SP,6747P,48,96,2.7
+Intel,CPU,,,Granite Rapids SP,6741P,48,96,2.5
+Intel,CPU,,,Granite Rapids SP,6740P,48,96,2.1
+Intel,CPU,,,Granite Rapids SP,6730P,32,64,2.5
+Intel,CPU,,,Granite Rapids SP,6748P,48,96,2.5
+Intel,CPU,,,Granite Rapids SP,6738P,32,64,2.9
+Intel,CPU,,,Granite Rapids SP,6737P,32,64,2.9
+Intel,CPU,,,Granite Rapids SP,6728P,24,48,2.7
+Intel,CPU,,,Granite Rapids SP,6530P,32,64,2.3
+Intel,CPU,,,Granite Rapids SP,6520P,24,48,2.4
+Intel,CPU,,,Granite Rapids SP,6724P,16,32,3.6
+Intel,CPU,,,Granite Rapids SP,6515P,16,32,2.3
+Intel,CPU,,,Sierra Forest SP,6780E,144,144,2.2
+Intel,CPU,,,Sierra Forest SP,6740E,96,96,2.4
+AMD,CPU,,,Genoa,9754,128,256,2.25
+AMD,CPU,,,Genoa,9734,112,224,2.2
+AMD,CPU,,,Genoa,9654,96,192,2.4
+AMD,CPU,,,Genoa,9634,84,168,2.25
+AMD,CPU,,,Genoa,9554,64,128,3.1
+AMD,CPU,,,Genoa,9534,64,128,2.45
+AMD,CPU,,,Genoa,9454,48,96,2.75
+AMD,CPU,,,Genoa,9354,32,64,3.25
+AMD,CPU,,,Genoa,9334,32,64,2.7
+AMD,CPU,,,Genoa,9254,24,48,2.9
+AMD,CPU,,,Genoa,9224,24,48,2.5
+AMD,CPU,,,Genoa,9124,16,32,3
+AMD,CPU,,,Genoa,9654P,96,192,2.4
+AMD,CPU,,,Genoa,9554P,64,128,3.1
+AMD,CPU,,,Genoa,9454P,48,96,2.75
+AMD,CPU,,,Genoa,9354P,32,64,3.25
+AMD,CPU,,,Genoa,9474F,48,96,3.6
+AMD,CPU,,,Genoa,9374F,32,64,3.85
+AMD,CPU,,,Genoa,9274F,24,48,4.05
+AMD,CPU,,,Genoa,9174F,16,32,4.1
+AMD,CPU,,,Genoa,9684X,96,192,2.55
+AMD,CPU,,,Genoa,9384X,32,64,3.1
+AMD,CPU,,,Genoa,9184X,16,32,3.55
+AMD,CPU,,,Turin,9965,192,384,2.25
+AMD,CPU,,,Turin,9845,160,320,2.1
+AMD,CPU,,,Turin,9825,144,288,2.2
+AMD,CPU,,,Turin,9755,128,256,2.7
+AMD,CPU,,,Turin,9745,128,256,2.4
+AMD,CPU,,,Turin,9655,96,192,2.6
+AMD,CPU,,,Turin,9645,96,192,2.3
+AMD,CPU,,,Turin,9565,72,144,3.15
+AMD,CPU,,,Turin,9555,64,128,3.2
+AMD,CPU,,,Turin,9535,64,128,2.4
+AMD,CPU,,,Turin,9455,48,96,3.15
+AMD,CPU,,,Turin,9365,36,72,3.4
+AMD,CPU,,,Turin,9355,32,64,3.55
+AMD,CPU,,,Turin,9335,32,64,3
+AMD,CPU,,,Turin,9255,24,48,3.2
+AMD,CPU,,,Turin,9135,16,32,3.65
+AMD,CPU,,,Turin,9115,16,32,2.6
+AMD,CPU,,,Turin,9015,8,16,3.6
+AMD,CPU,,,Turin,9575F,64,128,3.3
+AMD,CPU,,,Turin,9475F,48,96,3.65
+AMD,CPU,,,Turin,9375F,32,64,3.8
+AMD,CPU,,,Turin,9275F,24,48,4.1
+AMD,CPU,,,Turin,9175F,16,32,4.2
+AMD,CPU,,,Turin,9655P,96,192,2.6
+AMD,CPU,,,Turin,9555P,64,128,3.2
+AMD,CPU,,,Turin,9455P,48,96,3.15
+AMD,CPU,,,Turin,9355P,32,64,3.55

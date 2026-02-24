@@ -1,0 +1,11 @@
+id,platform,cooling,formFactor,gpuType,gpus,application,nodeCount,cpuVendor,CpuPerNode,MaxCpuTDP(W),dimmPerNode,pcieSlotsPerNode,ocpslotspernode,frontDiskSlotsPerNode,rearDiskSlotsPerNode,internalDiskSlotsPerNode
+SR230-2,X86,air,2ru,nvidia-h200-nvl|nvidia-rtx-6000,2,gp,1,intel,xeon-6*2,350,DDR5*32,G5-FHFL-x16*2&G5-FHFL-x8*2&G5-FHHL-x8*2&G5-HHHL-x8*1|G5-FHFL-x16-dw*2&G5-FHHL-x16*2&G5-HHHL-x8*1,OCP3.0-SFF-x16*1&OCP3.0-SFF-x8*1,"2.5""_7mm-SATA/SAS/NVMe*24|3.5""-SATA/SAS*12","2.5""_7mm-SATA/SAS/NVMe*2",M.2_2280*2
+SR120-2,X86,air,1ru,none,0,gp,1,intel,xeon-5*2|xeon-4*2,270,DDR5*32,G5-FHHL-x16*2|G5-HHHL-x16*2&G5-HHHL-x8*1,OCP3.0-SFF-x16*1&OCP3.0-SFF-x8*1,"2.5""_7mm-SATA/SAS/NVMe*12|3.5""-SATA/SAS*4",none,M.2_2280*2
+SR210-2,X86,air,2ru,nvidia-hgx-h100,2,gp,1,intel,xeon-3*2,270,DDR4*16,G4-FHFL-x16*2&G4-FHFL-x8*2&G4-FHHL-x8*2&G4-HHHL-x8*1|G4-FHFL-x16-dw*2&G4-FHHL-x16*2&G4-HHHL-x8*1,OCP2.0-A*1,"2.5""_7mm-SATA/SAS/NVMe*24|3.5""-SATA/SAS*12","2.5""_7mm-SATA/SAS/NVMe*2",M.2_2280*2|M.2_22110*2
+SX420-2A,X86,air,4ru,nvidia-h200-nvl|nvidia-rtx-6000,8,ai-ml,1,amd,epyc-9005*2,400,DDR5*32,G5-FHFL-x16-dw*8&G5-FHHL-x16*5&G5-HHHL-x16*1,none,"2.5""_9.5mm-NVMe*8|E1.S_9.5mm-NVMe*8|E3.S_9.5mm-NVMe*8",none,M.2_2280*2
+SG720-2A,X86,air,7ru,amd-mi350x|amd-mi300x,8,ai-ml,1,amd,epyc-9005*2,500,DDR5*24,G5-FHFL-x16*4&G5-HHHL-x16*4,OCP3.0-SFF-x16*1&OCP3.0-SFF-x8*1,"2.5""_9.5mm-NVMe*8",none,M.2_2280*2
+SGX30-2,X86,air,10ru,nvidia-B300,8,ai-ml,1,amd,xeon-6*2,350,DDR5*32,G5-FHFL-x16*4,OCP3.0-TFF-x8*1,E1.S_9.5mm-NVMe*8,none,M.2_2280*2
+SG430-2-L1,X86,dlc-1,5ou,nvidia-B300,8,ai-ml,1,amd,xeon-6*2,350,DDR5*32,G5-FHFL-x16*4,OCP3.0-TFF-x8*1,E1.S_9.5mm-NVMe*8,none,M.2_2280*2
+SD223-8A,X86,air,2ru,none,0,hpc,4,amd,epyc-9005*2,280,DDR5*24,"A: G5-HHHL-x16*1
+B: G5-HHHL-x16*2",OCP3.0-SFF-x16*1,"A: 2.5""_7mm-SATA/SAS/NVMe*2|2.5""_15mm-SATA/SAS/NVMe*1
+B: 2.5""_7mm-SATA/SAS/NVMe*4|2.5""_15mm-SATA/SAS/NVMe*2",none,M.2_2280*2
