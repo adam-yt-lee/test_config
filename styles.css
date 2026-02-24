@@ -917,3 +917,338 @@ body {
     .filter-panel { width: 100%; min-width: auto; border-right: none; border-bottom: 1px solid var(--pale-green); max-height: none; }
     .results-panel { max-height: none; }
 }
+
+/* ============================================
+   NEW: Collapsed Section UI with "+" button
+   ============================================ */
+.config-section {
+    background: #fff;
+    border: 1px solid var(--pale-green);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: visible;
+}
+
+.config-section-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 10px;
+    cursor: default;
+    user-select: none;
+}
+
+.section-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 200px;
+    flex-shrink: 0;
+}
+
+.section-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--dark-green);
+    white-space: nowrap;
+}
+
+.section-type-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.cfg-single   { background: var(--pale-green); color: var(--accent-green); }
+.cfg-multi    { background: #dbeafe; color: #1e40af; }
+.cfg-optional { background: #f3e8ff; color: #7c3aed; }
+
+.section-summary {
+    flex: 1;
+    font-size: 13px;
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    padding: 0 8px;
+}
+
+.section-plus-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--pale-green);
+    background: #fff;
+    cursor: pointer;
+    color: var(--dark-green);
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+.section-plus-btn:hover { background: var(--pale-green); border-color: var(--light-green); }
+.section-plus-btn.panel-open { background: var(--light-green); border-color: var(--dark-green); color: #fff; }
+.section-plus-btn.panel-open svg { transform: rotate(45deg); }
+
+.config-section-panel {
+    border-top: 1px solid var(--pale-green);
+    background: var(--lighter-bg);
+    border-radius: 0 0 8px 8px;
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+/* Option list inside panel */
+.option-list { padding: 4px 0; }
+
+.config-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--pale-green);
+    transition: background 0.1s ease;
+}
+.config-option:last-child { border-bottom: none; }
+.config-option:hover { background: var(--pale-green); }
+.config-option.selected { background: #e6f4d7; }
+.config-option input[type="checkbox"],
+.config-option input[type="radio"] { display: none; }
+
+.check-dot {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--pale-green);
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+.config-option.selected .check-dot { background: var(--light-green); border-color: var(--light-green); }
+
+.option-text { flex: 1; min-width: 0; }
+.option-name { font-size: 14px; font-weight: 600; color: var(--dark-green); }
+.option-desc { font-size: 12px; color: #64748b; margin-top: 1px; }
+
+.option-qty-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.option-qty-ctrl button {
+    width: 22px; height: 22px;
+    border: 1px solid var(--pale-green);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--dark-green);
+    display: flex; align-items: center; justify-content: center;
+}
+.option-qty-ctrl button:hover { background: var(--pale-green); }
+.option-qty-ctrl span { font-size: 13px; font-weight: 600; color: var(--dark-green); min-width: 20px; text-align: center; }
+
+.option-qty-fixed { font-size: 12px; color: #94a3b8; margin-left: auto; flex-shrink: 0; padding-left: 8px; }
+.panel-empty { padding: 16px; font-size: 13px; color: #94a3b8; text-align: center; }
+
+/* ============================================
+   NEW: Node concept UI
+   ============================================ */
+.node-config-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark-green);
+    background: var(--pale-green);
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.node-qty-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: var(--lighter-bg);
+    border: 1px solid var(--pale-green);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.node-qty-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.node-qty-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dark-green);
+    min-width: 60px;
+}
+
+.node-qty-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.node-qty-ctrl button {
+    width: 26px; height: 26px;
+    border: 1px solid var(--pale-green);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--dark-green);
+    display: flex; align-items: center; justify-content: center;
+}
+.node-qty-ctrl button:hover { background: var(--pale-green); }
+.node-qty-ctrl input[type="number"] {
+    width: 52px;
+    text-align: center;
+    border: 1px solid var(--pale-green);
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark-green);
+}
+
+.node-qty-unit { font-size: 12px; color: #64748b; }
+
+.node-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(90deg, var(--pale-green) 0%, #fff 100%);
+    border-left: 4px solid var(--light-green);
+    padding: 8px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 8px;
+    margin-top: 16px;
+}
+
+.node-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--dark-green);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.node-slot-info {
+    font-size: 11px;
+    color: #64748b;
+}
+
+/* ============================================
+   NEW: RAID / Transceiver dependency UI
+   ============================================ */
+.dep-panel { padding: 12px 16px; }
+
+.dep-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #b45309;
+    background: #fef3c7;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid #fcd34d;
+}
+
+.raid-steps, .trans-steps { display: flex; flex-direction: column; gap: 12px; }
+
+.raid-step, .trans-step {
+    background: #fff;
+    border: 1px solid var(--pale-green);
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.raid-step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dark-green);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.raid-select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--pale-green);
+    border-radius: 5px;
+    font-size: 13px;
+    color: var(--dark-green);
+    background: #fff;
+}
+.raid-select:focus { outline: none; border-color: var(--light-green); }
+
+.raid-level-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.raid-level-btn {
+    padding: 5px 14px;
+    border: 1px solid var(--pale-green);
+    border-radius: 5px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dark-green);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.raid-level-btn:hover { background: var(--pale-green); }
+.raid-level-btn.active { background: var(--light-green); border-color: var(--dark-green); color: #fff; }
+
+.raid-capacity {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--dark-green);
+    background: var(--pale-green);
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+/* ============================================
+   NEW: Conflict warnings panel
+   ============================================ */
+.conflict-warnings-section {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+}
+.conflict-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #b45309;
+    margin-bottom: 8px;
+}
+.conflict-item {
+    font-size: 12px;
+    color: #78350f;
+    padding: 4px 0;
+    padding-left: 12px;
+    border-left: 2px solid #fcd34d;
+    margin-bottom: 4px;
+}

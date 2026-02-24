@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Server Configurator - Configure</title>
-    <link rel="stylesheet" href="styles.css?v=3">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css?v=4">
     <script src="validator.js"></script>
     <script src="dataLoader.js"></script>
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </head>
 <body>
     <div class="configurator-wrapper">
@@ -27,7 +26,7 @@
         </div>
 
         <div class="configurator-body">
-            <div id="page-configure" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+            <div id="page-configure" style="display:flex;flex-direction:column;flex:1;min-height:0;">
                 <div class="page-toolbar">
                     <button class="toolbar-back-btn" onclick="window.location.href='index.html'">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
@@ -55,204 +54,555 @@
 
 <script>
 // ============================================
-// Parse URL Parameters
+// URL params
 // ============================================
 function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
-    return {
-        productId: params.get('product'),
-        editIndex: params.get('edit') !== null ? parseInt(params.get('edit')) : -1
-    };
+    return { productId: params.get('product'), editIndex: params.get('edit') !== null ? parseInt(params.get('edit')) : -1 };
 }
 
 // ============================================
-// Initialize Configure Page
+// Initialize
 // ============================================
 function initConfigure() {
     updateCartBadge();
-    const params = getUrlParams();
-    if (!params.productId) {
-        window.location.href = 'index.html';
-        return;
-    }
+    const { productId, editIndex } = getUrlParams();
+    if (!productId) { window.location.href = 'index.html'; return; }
 
-    selectedProduct = products.find(p => p.id === params.productId);
-    if (!selectedProduct) {
-        window.location.href = 'index.html';
-        return;
-    }
+    selectedProduct = products.find(p => p.id === productId);
+    if (!selectedProduct) { window.location.href = 'index.html'; return; }
 
-    activeConfigSections = createConfigSections(selectedProduct);
+    // Build nodeConfigs
+    activeNodeConfigs = selectedProduct.nodes.map((nodeSpec, idx) => ({
+        nodeIdx: idx,
+        nodeId: nodeSpec.nodeId,
+        nodeSpec,
+        qty: nodeSpec.defaultQty,
+        sections: createConfigSections(selectedProduct, nodeSpec),
+    }));
 
-    if (params.editIndex >= 0 && cartItems[params.editIndex]) {
-        editingCartIndex = params.editIndex;
-        const savedConfig = cartItems[params.editIndex].config;
-        activeConfigSections.forEach(section => {
-            if (savedConfig[section.key]) {
-                const val = savedConfig[section.key];
-                if (typeof val === 'string' && val) {
-                    section.loadSelections({ [val]: 1 });
-                } else if (typeof val === 'object') {
-                    section.loadSelections(val);
+    // Restore saved cart config if editing
+    if (editIndex >= 0 && cartItems[editIndex]) {
+        editingCartIndex = editIndex;
+        const saved = cartItems[editIndex];
+        if (selectedProduct.isMultiNode && Array.isArray(saved.config)) {
+            saved.config.forEach((nodeConfig, i) => {
+                if (activeNodeConfigs[i]) {
+                    if (saved.nodeQty && saved.nodeQty[i]) activeNodeConfigs[i].qty = saved.nodeQty[i];
+                    activeNodeConfigs[i].sections.forEach(s => {
+                        if (nodeConfig[s.key]) s.loadSelections(nodeConfig[s.key]);
+                    });
                 }
-            }
-        });
+            });
+        } else if (!selectedProduct.isMultiNode && saved.config) {
+            activeNodeConfigs[0].sections.forEach(s => {
+                if (saved.config[s.key]) s.loadSelections(saved.config[s.key]);
+            });
+        }
     } else {
         editingCartIndex = -1;
     }
 
-    document.getElementById('config-toolbar-title').textContent = 'Configure: ' + params.productId;
+    document.getElementById('config-toolbar-title').textContent = 'Configure: ' + productId;
     renderConfigPage();
 }
 
 // ============================================
-// Configuration Page Rendering
+// Render the full configure page
 // ============================================
 function renderConfigPage() {
     const content = document.getElementById('config-content');
     const lm = buildLabelMap();
     const p = selectedProduct;
-    const gpuText = p.gpus > 0 ? p.gpus + '\u00d7 ' + getLabel(lm, 'gpuType', p.gpuType) : 'No GPU';
+
+    const gpuBadge = p.gpus > 0
+        ? `<span class="result-badge gpu">${p.gpus}\u00d7 ${p.gpuType.map(g => getLabel(lm,'gpuType',g)).join(' / ')}</span>`
+        : `<span class="result-badge">No GPU</span>`;
 
     let html = `<div class="config-summary-card">
         <div class="config-summary-name">${p.id}</div>
         <div class="config-summary-badges">
-            <span class="result-badge platform">${getLabel(lm, 'platform', p.platform)}</span>
-            <span class="result-badge vendor">${getLabel(lm, 'vendor', p.vendor)}</span>
-            <span class="result-badge form-factor">${getLabel(lm, 'formFactor', p.formFactor)}</span>
-            <span class="result-badge cooling">${getLabel(lm, 'cooling', p.cooling)}</span>
+            <span class="result-badge platform">${getLabel(lm,'platform',p.platform)}</span>
+            <span class="result-badge vendor">${getLabel(lm,'cpuVendor',p.cpuVendor)}</span>
+            <span class="result-badge form-factor">${getLabel(lm,'formFactor',p.formFactor)}</span>
+            <span class="result-badge cooling">${getLabel(lm,'cooling',p.cooling)}</span>
+            ${gpuBadge}
         </div>
         <div class="config-summary-detail">
-            ${getLabel(lm, 'cpuSeries', p.cpuSeries)} &middot; ${gpuText} &middot; ${p.dimmSlots} DIMM Slots &middot; ${getLabel(lm, 'lanSpeed', p.lanSpeed)}
+            CPU: ${p.cpuSeries.toUpperCase()} \u00d7${p.cpuSockets} &middot;
+            ${p.dimmSlots} ${p.dimmType} slots &middot;
+            ${p.nodeCount > 1 ? p.nodeCount + ' nodes' : 'Single node'}
         </div>
     </div>`;
 
-    if (p.dimmSlots === 0) {
-        const dimmDef = configSectionDefs.find(d => d.key === 'dimm');
-        if (dimmDef) {
-            html += `<div class="config-section"><div class="config-section-header">
-                <span class="config-section-label">${dimmDef.name}</span>
-                <span class="config-section-value">Integrated Memory (No DIMM Slots)</span>
-            </div></div>`;
-        }
-    }
-
-    activeConfigSections.forEach(section => {
-        html += section.render();
-    });
-
-    html += `<div id="pcie-slot-panel"></div>`;
-
-    content.innerHTML = html;
-    renderPcieSlotPanel();
-}
-
-function renderPcieSlotPanel() {
-    const panel = document.getElementById('pcie-slot-panel');
-    if (!panel || !selectedProduct) return;
-
-    const result = validatePcieSlots(selectedProduct, activeConfigSections);
-    const hasWarnings = result.warnings.length > 0;
-
-    let html = `<div class="pcie-slot-section ${hasWarnings ? 'pcie-has-warnings' : ''}">
-        <div class="pcie-slot-header">
-            <span class="pcie-slot-title">PCIe Slot Usage</span>
-            <span class="pcie-slot-count">${result.totalCards} / ${result.totalSlots} slots used</span>
-        </div>`;
-
-    if (hasWarnings) {
-        html += `<div class="pcie-warnings">`;
-        result.warnings.forEach(w => {
-            html += `<div class="pcie-warning-item">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-                ${w}
+    // Node Configuration section (for multinode)
+    if (p.isMultiNode) {
+        html += `<div class="node-config-header">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.86.18-1.3 0-2.6-2.1-4.7-4.7-4.7-1.54 0-2.95.74-3.84 1.9L8 3.64C7.09 2.5 5.71 1.7 4.1 1.7 1.5 1.7 0 3.8 0 6.4c0 .6.11 1.17.26 1.6H0v14h24V8h-4V6zm-8-3.3c1.49 0 2.7 1.21 2.7 2.7 0 .44-.11.86-.28 1.3H12v-1.3c0-1.49 0-2.7 0-2.7zM2.18 6.4C2.18 5 3.4 3.8 4.8 3.8c.9 0 1.65.47 2.1 1.14L8 6.7H2.27c-.06-.1-.09-.2-.09-.3zM22 22H2V10h20v12z"/></svg>
+            Node 設定 (多節點機種)
+        </div>
+        <div class="node-qty-row">`;
+        activeNodeConfigs.forEach(nc => {
+            const label = nc.nodeId ? `Node ${nc.nodeId}` : 'All Nodes';
+            html += `<div class="node-qty-item">
+                <span class="node-qty-label">${label}</span>
+                <div class="node-qty-ctrl">
+                    <button onclick="changeNodeQty(${nc.nodeIdx}, -1)">&#8722;</button>
+                    <input type="number" id="qty-node-${nc.nodeIdx}" value="${nc.qty}" min="1"
+                        onchange="setNodeQty(${nc.nodeIdx}, this.value)">
+                    <button onclick="changeNodeQty(${nc.nodeIdx}, 1)">&#43;</button>
+                </div>
+                <span class="node-qty-unit">nodes</span>
             </div>`;
         });
         html += `</div>`;
     }
 
-    html += `<div class="pcie-slot-grid">`;
-    result.slotStatus.forEach((slot, idx) => {
-        const occupied = slot.assigned !== null;
-        const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
-        html += `<div class="pcie-slot-item ${statusClass}">
-            <div class="pcie-slot-type">${slot.type}</div>
-            <div class="pcie-slot-label">${occupied ? slot.assigned.name : 'Empty'}</div>
-        </div>`;
-    });
-
-    result.unassigned.forEach(card => {
-        html += `<div class="pcie-slot-item pcie-slot-overflow">
-            <div class="pcie-slot-type">No slot</div>
-            <div class="pcie-slot-label">${card.name}</div>
-        </div>`;
-    });
-
-    html += `</div></div>`;
-    panel.innerHTML = html;
-}
-
-function toggleSection(headerEl) {
-    headerEl.parentElement.classList.toggle('open');
-}
-
-// ============================================
-// ConfigSection Event Handlers
-// ============================================
-function onSectionSelect(sectionKey, optionId) {
-    const section = activeConfigSections.find(s => s.key === sectionKey);
-    if (!section) return;
-    section.select(optionId);
-    updateSectionUI(section);
-}
-
-function onSectionQty(sectionKey, optionId, value) {
-    const section = activeConfigSections.find(s => s.key === sectionKey);
-    if (!section) return;
-    section.setQty(optionId, value);
-    updateSectionUI(section);
-}
-
-function updateSectionUI(section) {
-    const summaryEl = document.getElementById('summary-' + section.key);
-    if (summaryEl) summaryEl.textContent = section.getSummary();
-
-    const sectionEl = document.querySelector(`.config-section[data-key="${section.key}"]`);
-    if (!sectionEl) return;
-
-    sectionEl.querySelectorAll('.config-option').forEach(label => {
-        const input = label.querySelector('input');
-        const optId = input.value;
-        const isSelected = section.selections[optId] !== undefined;
-        label.classList.toggle('selected', isSelected);
-        input.checked = isSelected;
-
-        const qtyInput = label.querySelector('.qty-input');
-        if (qtyInput && isSelected) {
-            qtyInput.value = section.selections[optId];
+    // Sections per node
+    activeNodeConfigs.forEach(nc => {
+        const nodeLabel = nc.nodeId ? `Node ${nc.nodeId}` : null;
+        if (p.isMultiNode && nodeLabel) {
+            html += `<div class="node-section-header" id="node-block-${nc.nodeIdx}">
+                <span class="node-label">${nodeLabel}</span>
+                <span class="node-slot-info">${nc.nodeSpec.pcieSlots.length} PCIe slot(s)</span>
+            </div>`;
         }
+
+        nc.sections.forEach(section => {
+            const uid = makeUID(nc.nodeIdx, section.key);
+            html += section.render(uid);
+        });
     });
 
-    if (section.key === 'lanCard' || section.key === 'raidCard') {
-        renderPcieSlotPanel();
+    // PCIe slot panel
+    html += `<div id="pcie-slot-panel"></div>`;
+    html += `<div id="conflict-warnings-panel"></div>`;
+
+    content.innerHTML = html;
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+// ============================================
+// Toggle section panel (collapsible "+" button)
+// ============================================
+function toggleSectionPanel(uid) {
+    const panel = document.getElementById('panel-' + uid);
+    const btn   = document.getElementById('btn-' + uid);
+    if (!panel) return;
+
+    const isOpen = panel.style.display !== 'none';
+
+    // Close all other panels
+    document.querySelectorAll('.config-section-panel').forEach(p => { p.style.display = 'none'; });
+    document.querySelectorAll('.section-plus-btn').forEach(b => b.classList.remove('panel-open'));
+
+    if (!isOpen) {
+        panel.style.display = 'block';
+        btn.classList.add('panel-open');
+        // Check if this is a dependent section
+        const section = findSectionByUID(uid);
+        if (section && section.dependsOn) {
+            refreshDependentSection(uid, section);
+        }
     }
 }
 
 // ============================================
-// Config Actions
+// Refresh RAID / Transceiver dependent panel
+// ============================================
+function refreshDependentSection(uid, section) {
+    const depEl = document.getElementById('dep-' + uid);
+    if (!depEl) return;
+
+    const parsed = parseSectionUID(uid);
+    const nc = activeNodeConfigs[parsed.nodeIdx];
+    if (!nc) return;
+
+    if (section.dependsOn === 'disk') {
+        const diskSections = nc.sections.filter(s => s.key === 'hdd' || s.key === 'ssd');
+        const diskSelections = [];
+        diskSections.forEach(ds => {
+            Object.entries(ds.selections).forEach(([optId, qty]) => {
+                const opt = ds.options.find(o => o.id === optId);
+                if (opt) diskSelections.push({ section: ds, opt, qty });
+            });
+        });
+
+        if (!diskSelections.length) {
+            depEl.innerHTML = `<div class="dep-hint">⚠ 請先選擇硬碟 (HDD / SSD)，再設定 RAID。</div>`;
+            return;
+        }
+
+        // Build RAID config UI
+        const diskOpts = diskSelections.map((d, i) =>
+            `<option value="${i}">${d.qty}\u00d7 ${d.opt.name}</option>`).join('');
+
+        let html = `<div class="raid-steps">
+            <div class="raid-step">
+                <div class="raid-step-label">Step 1：選擇目標硬碟</div>
+                <select class="raid-select" id="rds-disk-${uid}" onchange="onRaidDiskChange('${uid}')">
+                    <option value="">-- 選擇硬碟 --</option>${diskOpts}
+                </select>
+            </div>
+            <div class="raid-step" id="rds-card-step-${uid}" style="display:none">
+                <div class="raid-step-label">Step 2：選擇 RAID Card</div>
+                <div class="option-list" id="rds-cards-${uid}"></div>
+            </div>
+            <div class="raid-step" id="rds-level-step-${uid}" style="display:none">
+                <div class="raid-step-label">Step 3：選擇 RAID Level</div>
+                <div class="raid-level-btns" id="rds-levels-${uid}"></div>
+            </div>
+            <div class="raid-step" id="rds-cap-step-${uid}" style="display:none">
+                <div class="raid-step-label">可用容量</div>
+                <div class="raid-capacity" id="rds-cap-${uid}">-- GB</div>
+            </div>
+        </div>`;
+        depEl.innerHTML = html;
+        depEl._diskSelections = diskSelections;
+
+    } else if (section.dependsOn === 'nic') {
+        const nicSec = nc.sections.find(s => s.key === 'nic');
+        const nicSelections = [];
+        if (nicSec) {
+            Object.entries(nicSec.selections).forEach(([optId, qty]) => {
+                const opt = nicSec.options.find(o => o.id === optId);
+                if (opt) nicSelections.push({ opt, qty });
+            });
+        }
+
+        if (!nicSelections.length) {
+            depEl.innerHTML = `<div class="dep-hint">⚠ 請先選擇 NIC Card，再選擇 Transceiver。</div>`;
+            return;
+        }
+
+        const nicOpts = nicSelections.map((n, i) =>
+            `<option value="${i}">${n.qty}\u00d7 ${n.opt.name}</option>`).join('');
+
+        let html = `<div class="trans-steps">
+            <div class="trans-step">
+                <div class="raid-step-label">Step 1：選擇 NIC</div>
+                <select class="raid-select" id="trs-nic-${uid}" onchange="onTransNicChange('${uid}')">
+                    <option value="">-- 選擇 NIC --</option>${nicOpts}
+                </select>
+            </div>
+            <div class="trans-step" id="trs-module-step-${uid}" style="display:none">
+                <div class="raid-step-label">Step 2：選擇 Transceiver（數量固定為 NIC port 數）</div>
+                <div class="option-list" id="trs-modules-${uid}"></div>
+            </div>
+        </div>`;
+        depEl.innerHTML = html;
+        depEl._nicSelections = nicSelections;
+
+    } else if (section.dependsOn === 'raid') {
+        const raidSec = nc.sections.find(s => s.key === 'raid');
+        const hasRaid = raidSec && Object.keys(raidSec.selections).length > 0;
+        if (!hasRaid) {
+            depEl.innerHTML = `<div class="dep-hint">⚠ 請先選擇 RAID Card，再選擇 BBU。</div>`;
+            return;
+        }
+        // Show regular option list for BBU
+        depEl.innerHTML = section._renderOptionList(uid);
+    }
+}
+
+// ============================================
+// RAID step: disk selected → show compatible RAID cards
+// ============================================
+function onRaidDiskChange(uid) {
+    const select = document.getElementById('rds-disk-' + uid);
+    const depEl  = document.getElementById('dep-' + uid);
+    const cardStep  = document.getElementById('rds-card-step-' + uid);
+    const levelStep = document.getElementById('rds-level-step-' + uid);
+    const capStep   = document.getElementById('rds-cap-step-' + uid);
+    if (!select || !depEl) return;
+
+    if (!select.value) { cardStep.style.display = 'none'; levelStep.style.display = 'none'; capStep.style.display = 'none'; return; }
+    const idx = parseInt(select.value);
+    const diskEntry = depEl._diskSelections[idx];
+    if (!diskEntry) return;
+
+    const isNVMe = diskEntry.opt.meta && diskEntry.opt.meta.isNVMe;
+    const isSAS  = diskEntry.opt.meta && diskEntry.opt.meta.isSAS;
+    const isM2   = diskEntry.opt.meta && diskEntry.opt.meta.isM2;
+
+    const section = findSectionByUID(uid);
+    const cards = section ? section.options.filter(opt => {
+        if (isM2) return opt.meta.isM2Raid;
+        if (opt.meta.isM2Raid) return false;
+        return true;
+    }) : [];
+
+    const cardsHtml = cards.map(c =>
+        `<label class="config-option ${section.selections[c.id] ? 'selected' : ''}">
+            <input type="radio" name="raid-card-${uid}" value="${c.id}"
+                ${section.selections[c.id] ? 'checked' : ''}
+                onchange="onRaidCardSelect('${uid}', '${c.id}')">
+            <div class="option-text"><div class="option-name">${c.name}</div><div class="option-desc">${c.desc}</div></div>
+        </label>`
+    ).join('');
+
+    document.getElementById('rds-cards-' + uid).innerHTML = cardsHtml || '<div class="panel-empty">No compatible RAID cards.</div>';
+    cardStep.style.display = 'block';
+    levelStep.style.display = 'none';
+    capStep.style.display   = 'none';
+    depEl._selectedDisk = diskEntry;
+}
+
+// ============================================
+// RAID step: card selected → show RAID levels
+// ============================================
+function onRaidCardSelect(uid, cardId) {
+    const section = findSectionByUID(uid);
+    if (!section) return;
+    section.selections = {};
+    section.selections[cardId] = 1;
+    updateSectionSummary(uid);
+
+    const levelStep = document.getElementById('rds-level-step-' + uid);
+    const levels = ['RAID 0', 'RAID 1', 'RAID 5', 'RAID 6', 'RAID 10'];
+    const btnsHtml = levels.map(lvl =>
+        `<button class="raid-level-btn" onclick="onRaidLevelSelect('${uid}','${lvl}',this)">${lvl}</button>`
+    ).join('');
+    document.getElementById('rds-levels-' + uid).innerHTML = btnsHtml;
+    levelStep.style.display = 'block';
+    document.getElementById('rds-cap-step-' + uid).style.display = 'none';
+}
+
+// ============================================
+// RAID step: level selected → calculate capacity
+// ============================================
+function onRaidLevelSelect(uid, level, btn) {
+    document.querySelectorAll(`#rds-levels-${uid} .raid-level-btn`).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const depEl = document.getElementById('dep-' + uid);
+    const disk  = depEl ? depEl._selectedDisk : null;
+    if (!disk) return;
+
+    const capRaw = (disk.opt.meta && disk.opt.meta.capacity) || '0';
+    const capNum = parseFloat(capRaw.replace(/T$/,'').replace(/G$/,'')) || 0;
+    const isGB   = capRaw.endsWith('G') || parseInt(capRaw) < 100;
+    const capGB  = isGB ? capNum : capNum * 1000;
+    const driveCount = disk.qty;
+
+    let usableGB = 0;
+    if (level === 'RAID 0') usableGB = driveCount * capGB;
+    else if (level === 'RAID 1') usableGB = capGB;
+    else if (level === 'RAID 5') usableGB = driveCount > 2 ? (driveCount - 1) * capGB : 0;
+    else if (level === 'RAID 6') usableGB = driveCount > 3 ? (driveCount - 2) * capGB : 0;
+    else if (level === 'RAID 10') usableGB = (driveCount >= 4 && driveCount % 2 === 0) ? (driveCount / 2) * capGB : 0;
+
+    const capEl = document.getElementById('rds-cap-' + uid);
+    if (capEl) {
+        const tb = usableGB >= 1000 ? (usableGB / 1000).toFixed(1) + ' TB' : usableGB.toFixed(0) + ' GB';
+        capEl.textContent = usableGB > 0 ? `${driveCount}\u00d7 ${disk.opt.name.split(' ')[2] || capRaw} → ${level} Usable: ${tb}` : 'Invalid configuration for ' + level;
+    }
+    document.getElementById('rds-cap-step-' + uid).style.display = 'block';
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+// ============================================
+// Transceiver: NIC selected → show compatible transceivers
+// ============================================
+function onTransNicChange(uid) {
+    const select = document.getElementById('trs-nic-' + uid);
+    const depEl  = document.getElementById('dep-' + uid);
+    const step   = document.getElementById('trs-module-step-' + uid);
+    if (!select || !depEl || !step) return;
+
+    if (!select.value) { step.style.display = 'none'; return; }
+    const idx = parseInt(select.value);
+    const nicEntry = depEl._nicSelections[idx];
+    if (!nicEntry) return;
+
+    const sfpType = nicEntry.opt.meta.sfpType;
+    const ports   = nicEntry.opt.meta.ports;
+    const section = findSectionByUID(uid);
+    if (!section) return;
+
+    const compat = section.options.filter(t => {
+        const ti = (t.meta.interface || '').toLowerCase();
+        if (!sfpType) return true;
+        if (sfpType === 'SFP+')   return ti.includes('sfp+') || ti.includes('sfp');
+        if (sfpType === 'SFP28')  return ti.includes('sfp28') || ti.includes('sfp+');
+        if (sfpType === 'QSFP28') return ti.includes('qsfp');
+        return true;
+    });
+
+    const modsHtml = compat.map(t => {
+        const isSelected = !!section.selections[t.id];
+        return `<label class="config-option ${isSelected ? 'selected' : ''}">
+            <input type="radio" name="trans-mod-${uid}" value="${t.id}"
+                ${isSelected ? 'checked' : ''}
+                onchange="onTransSelect('${uid}','${t.id}',${ports})">
+            <div class="option-text"><div class="option-name">${t.name}</div><div class="option-desc">${t.desc}</div></div>
+            <div class="option-qty-fixed">Qty: ${ports} (fixed)</div>
+        </label>`;
+    }).join('');
+
+    document.getElementById('trs-modules-' + uid).innerHTML = modsHtml || '<div class="panel-empty">No compatible transceivers for this NIC interface.</div>';
+    step.style.display = 'block';
+}
+
+function onTransSelect(uid, optId, ports) {
+    const section = findSectionByUID(uid);
+    if (!section) return;
+    section.selections = {};
+    section.selections[optId] = ports;
+    updateSectionSummary(uid);
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+// ============================================
+// Section selection events
+// ============================================
+function onSectionSelect(uid, optionId) {
+    const section = findSectionByUID(uid);
+    if (!section) return;
+    section.select(optionId);
+    refreshSectionOptionUI(uid, section);
+    updateSectionSummary(uid);
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+function adjustOptQty(event, uid, optionId, delta) {
+    event.stopPropagation();
+    const section = findSectionByUID(uid);
+    if (!section || section.selections[optionId] === undefined) return;
+    section.setQty(optionId, section.selections[optionId] + delta);
+    const el = document.getElementById('qty-' + uid + '-' + optionId);
+    if (el) el.textContent = section.selections[optionId];
+    updateSectionSummary(uid);
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+function refreshSectionOptionUI(uid, section) {
+    const panel = document.getElementById('panel-' + uid);
+    if (!panel) return;
+    panel.querySelectorAll('.config-option').forEach(label => {
+        const input = label.querySelector('input[type="checkbox"]');
+        if (!input) return;
+        const optId = input.value;
+        const isSelected = section.selections[optId] !== undefined;
+        label.classList.toggle('selected', isSelected);
+        input.checked = isSelected;
+        // Update qty control
+        const qtyEl = label.querySelector('[id^="qty-"]');
+        if (qtyEl && isSelected) qtyEl.textContent = section.selections[optId];
+    });
+}
+
+function updateSectionSummary(uid) {
+    const section = findSectionByUID(uid);
+    const el = document.getElementById('sum-' + uid);
+    if (el && section) el.textContent = section.getSummary();
+}
+
+// ============================================
+// Node qty controls
+// ============================================
+function changeNodeQty(nodeIdx, delta) {
+    const nc = activeNodeConfigs[nodeIdx];
+    if (!nc) return;
+    nc.qty = Math.max(1, nc.qty + delta);
+    const el = document.getElementById('qty-node-' + nodeIdx);
+    if (el) el.value = nc.qty;
+}
+
+function setNodeQty(nodeIdx, value) {
+    const nc = activeNodeConfigs[nodeIdx];
+    if (!nc) return;
+    nc.qty = Math.max(1, parseInt(value) || 1);
+}
+
+// ============================================
+// PCIe slot panel
+// ============================================
+function renderPcieSlotPanel() {
+    const panel = document.getElementById('pcie-slot-panel');
+    if (!panel || !selectedProduct) return;
+
+    // Validate per-node (show first node's result for single-node, all nodes for multi)
+    let allWarnings = [];
+    let allSlots = [];
+    let totalCards = 0;
+    let totalSlots = 0;
+
+    activeNodeConfigs.forEach(nc => {
+        const result = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections);
+        allWarnings = allWarnings.concat(result.warnings);
+        allSlots = allSlots.concat(result.slotStatus.map(s => ({ ...s, nodeLabel: nc.nodeId ? `Node ${nc.nodeId}` : '' })));
+        totalCards += result.totalCards;
+        totalSlots += result.totalSlots;
+    });
+
+    const hasWarnings = allWarnings.length > 0;
+    let html = `<div class="pcie-slot-section ${hasWarnings ? 'pcie-has-warnings' : ''}">
+        <div class="pcie-slot-header">
+            <span class="pcie-slot-title">PCIe Slot Usage</span>
+            <span class="pcie-slot-count">${totalCards} / ${totalSlots} slots used</span>
+        </div>`;
+
+    if (hasWarnings) {
+        html += `<div class="pcie-warnings">`;
+        allWarnings.forEach(w => {
+            html += `<div class="pcie-warning-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                ${w}</div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += `<div class="pcie-slot-grid">`;
+    allSlots.forEach(slot => {
+        const occupied   = slot.assigned !== null;
+        const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
+        html += `<div class="pcie-slot-item ${statusClass}">
+            <div class="pcie-slot-type">${slot.type}${slot.nodeLabel ? ' [' + slot.nodeLabel + ']' : ''}</div>
+            <div class="pcie-slot-label">${occupied ? slot.assigned.name : 'Empty'}</div>
+        </div>`;
+    });
+    html += `</div></div>`;
+    panel.innerHTML = html;
+}
+
+// ============================================
+// Conflict warnings panel
+// ============================================
+function renderConflictWarnings() {
+    const panel = document.getElementById('conflict-warnings-panel');
+    if (!panel) return;
+    let allWarnings = [];
+    activeNodeConfigs.forEach(nc => {
+        const w = checkSpecConflicts(selectedProduct, nc.sections);
+        allWarnings = allWarnings.concat(w);
+    });
+    if (!allWarnings.length) { panel.innerHTML = ''; return; }
+    let html = `<div class="conflict-warnings-section">
+        <div class="conflict-title">⚠ 規格衝突警告</div>`;
+    allWarnings.forEach(w => { html += `<div class="conflict-item">${w}</div>`; });
+    html += `</div>`;
+    panel.innerHTML = html;
+}
+
+// ============================================
+// Cart Actions
 // ============================================
 function cancelConfig() {
     editingCartIndex = -1;
-    activeConfigSections = [];
+    activeNodeConfigs = [];
     selectedProduct = null;
     window.location.href = 'index.html';
 }
 
 function saveDraft() {
     if (!selectedProduct) return;
-    const config = {};
-    activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
-    const item = { productId: selectedProduct.id, config, status: 'draft', timestamp: new Date().toISOString() };
+    const item = _buildCartItem('draft');
     if (editingCartIndex >= 0) cartItems[editingCartIndex] = item;
     else cartItems.push(item);
     persistCart();
@@ -262,22 +612,51 @@ function saveDraft() {
 
 function submitConfig() {
     if (!selectedProduct) return;
-    const allValid = activeConfigSections.every(s => s.isValid());
-    if (!allValid) { alert('Please complete all required configuration selections before submitting.'); return; }
-    const pcieResult = validatePcieSlots(selectedProduct, activeConfigSections);
-    if (pcieResult.unassigned.length > 0) {
-        const names = pcieResult.unassigned.map(c => c.name).join(', ');
-        alert('PCIe slot conflict: not enough compatible slots for: ' + names + '. Please adjust your card selections.');
-        return;
+    // Validate required sections
+    for (const nc of activeNodeConfigs) {
+        for (const s of nc.sections) {
+            if (!s.isValid()) {
+                alert('Please complete all required selections (CPU, DIMM) before submitting.');
+                return;
+            }
+        }
     }
-    const config = {};
-    activeConfigSections.forEach(s => { config[s.key] = s.getSelections(); });
-    const item = { productId: selectedProduct.id, config, status: 'confirmed', timestamp: new Date().toISOString() };
+    // Check PCIe conflicts
+    let pcieOk = true;
+    activeNodeConfigs.forEach(nc => {
+        const r = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections);
+        if (r.unassigned.length > 0) {
+            alert('PCIe slot conflict: not enough slots for: ' + r.unassigned.map(c => c.name).join(', '));
+            pcieOk = false;
+        }
+    });
+    if (!pcieOk) return;
+
+    const item = _buildCartItem('confirmed');
     if (editingCartIndex >= 0) cartItems[editingCartIndex] = item;
     else cartItems.push(item);
     persistCart();
     editingCartIndex = -1;
     window.location.href = 'cart.html';
+}
+
+function _buildCartItem(status) {
+    if (selectedProduct.isMultiNode) {
+        return {
+            productId: selectedProduct.id,
+            nodeQty: activeNodeConfigs.map(nc => nc.qty),
+            config: activeNodeConfigs.map(nc => {
+                const cfg = {};
+                nc.sections.forEach(s => { cfg[s.key] = s.getSelections(); });
+                return cfg;
+            }),
+            status, timestamp: new Date().toISOString(),
+        };
+    } else {
+        const config = {};
+        activeNodeConfigs[0].sections.forEach(s => { config[s.key] = s.getSelections(); });
+        return { productId: selectedProduct.id, config, status, timestamp: new Date().toISOString() };
+    }
 }
 
 // ============================================

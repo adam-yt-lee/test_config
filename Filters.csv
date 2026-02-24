@@ -1,0 +1,25 @@
+category_key,category_name,option_value,option_label
+platform,Platform,x86,X86
+cooling,Cooling,air,Air Cooling
+cooling,Cooling,dlc-1,Direct Liquid Cooling
+formFactor,Form Factor,1ru,1U
+formFactor,Form Factor,2ru,2U
+formFactor,Form Factor,4ru,4U
+formFactor,Form Factor,5ou,5OU
+formFactor,Form Factor,7ru,7U
+formFactor,Form Factor,10ru,10U
+gpuType,GPU Type,none,No GPU
+gpuType,GPU Type,nvidia-h200-nvl,NVIDIA H200 NVL
+gpuType,GPU Type,nvidia-rtx-6000,NVIDIA RTX 6000
+gpuType,GPU Type,nvidia-hgx-h100,NVIDIA HGX H100
+gpuType,GPU Type,nvidia-b300,NVIDIA B300
+gpuType,GPU Type,amd-mi350x,AMD MI350X
+gpuType,GPU Type,amd-mi300x,AMD MI300X
+gpuType,GPU Type,amd-mi325x,AMD MI325X
+application,Application,gp,General Purpose
+application,Application,ai-ml,AI / ML
+application,Application,hpc,HPC
+cpuVendor,CPU Vendor,intel,Intel
+cpuVendor,CPU Vendor,amd,AMD
+nodeType,Node Type,single,Single Node
+nodeType,Node Type,multi,Multi-Node
