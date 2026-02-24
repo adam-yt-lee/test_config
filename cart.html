@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Server Configurator - Shopping Cart</title>
-    <link rel="stylesheet" href="styles.css?v=3">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css?v=4">
     <script src="validator.js"></script>
     <script src="dataLoader.js"></script>
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </head>
 <body>
     <div class="configurator-wrapper">
@@ -83,20 +82,20 @@ function renderCart() {
     cartItems.forEach((item, i) => {
         const product = products.find(p => p.id === item.productId);
         if (!product) return;
-        const gpuText = product.gpus > 0 ? product.gpus + '\u00d7 ' + getLabel(lm, 'gpuType', product.gpuType) : 'No GPU';
+        const gpuText = product.gpus > 0 ? product.gpus + '\u00d7 ' + product.gpuType.map(g => getLabel(lm,'gpuType',g)).join('/') : 'No GPU';
         const statusCls = item.status === 'confirmed' ? 'badge-confirmed' : 'badge-draft';
         const statusTxt = item.status === 'confirmed' ? 'Confirmed' : 'Draft';
 
+        // Support both single-node (item.config) and multinode (item.config array) format
+        const configs = Array.isArray(item.config) ? item.config : [item.config];
         let configRows = '';
-        configSectionDefs.forEach(def => {
-            const val = item.config[def.key];
-            let displayText;
-            if (def.key === 'dimm' && product.dimmSlots === 0) {
-                displayText = 'Integrated';
-            } else {
-                displayText = resolveConfigSummary(def.key, val);
-            }
-            configRows += `<tr><td class="cart-cfg-label">${def.name}</td><td>${displayText}</td></tr>`;
+        configs.forEach((cfg, ni) => {
+            if (configs.length > 1) configRows += `<tr><td colspan="2" style="font-weight:700;color:var(--dark-green);padding-top:6px;">Node ${String.fromCharCode(65+ni)} (×${item.nodeQty ? item.nodeQty[ni] : 1})</td></tr>`;
+            configSectionDefs.forEach(def => {
+                const val = cfg ? cfg[def.key] : null;
+                if (!val || (typeof val === 'object' && !Object.keys(val).length)) return;
+                configRows += `<tr><td class="cart-cfg-label">${def.name}</td><td>${resolveConfigSummary(def.key, val)}</td></tr>`;
+            });
         });
 
         html += `<div class="cart-item">
@@ -113,7 +112,7 @@ function renderCart() {
             </div>
             <div class="cart-item-badges">
                 <span class="result-badge platform">${getLabel(lm, 'platform', product.platform)}</span>
-                <span class="result-badge vendor">${getLabel(lm, 'vendor', product.vendor)}</span>
+                <span class="result-badge vendor">${getLabel(lm, 'cpuVendor', product.cpuVendor)}</span>
                 <span class="result-badge form-factor">${getLabel(lm, 'formFactor', product.formFactor)}</span>
                 <span class="result-badge cooling">${getLabel(lm, 'cooling', product.cooling)}</span>
                 <span style="font-size:11px;color:#64748b;">${gpuText}</span>

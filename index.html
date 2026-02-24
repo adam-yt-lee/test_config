@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Server Multi-Layer Configurator</title>
-    <link rel="stylesheet" href="styles.css?v=3">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css?v=4">
     <script src="validator.js"></script>
     <script src="dataLoader.js"></script>
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </head>
 <body>
     <div class="configurator-wrapper">
@@ -293,22 +292,22 @@ function renderResults(matchingProducts) {
 
     const lm = buildLabelMap();
     let html = `<table class="results-table"><thead><tr>
-        <th>Model</th><th>Platform</th><th>Vendor</th><th>CPU Series</th>
-        <th>Form Factor</th><th>GPU</th><th>Cooling</th><th>DIMM</th><th>LAN</th><th></th>
+        <th>Model</th><th>Platform</th><th>CPU Vendor</th><th>CPU Series</th>
+        <th>Form Factor</th><th>GPU</th><th>Cooling</th><th>DIMM</th><th>Nodes</th><th></th>
     </tr></thead><tbody>`;
 
     matchingProducts.forEach(p => {
-        const gpuText = p.gpus > 0 ? p.gpus + 'x ' + getLabel(lm, 'gpuType', p.gpuType) : 'No GPU';
+        const gpuText = p.gpus > 0 ? p.gpus + '\u00d7 ' + p.gpuType.map(g => getLabel(lm,'gpuType',g)).join('/') : 'No GPU';
         html += `<tr class="result-row-clickable" onclick="openConfigurator('${p.id}')">
             <td><strong>${p.id}</strong></td>
             <td><span class="result-badge platform">${getLabel(lm, 'platform', p.platform)}</span></td>
-            <td><span class="result-badge vendor">${getLabel(lm, 'vendor', p.vendor)}</span></td>
-            <td>${getLabel(lm, 'cpuSeries', p.cpuSeries)}</td>
+            <td><span class="result-badge vendor">${getLabel(lm, 'cpuVendor', p.cpuVendor)}</span></td>
+            <td>${p.cpuSeries.toUpperCase()} \u00d7${p.cpuSockets}</td>
             <td><span class="result-badge form-factor">${getLabel(lm, 'formFactor', p.formFactor)}</span></td>
             <td><span class="result-badge gpu">${gpuText}</span></td>
             <td><span class="result-badge cooling">${getLabel(lm, 'cooling', p.cooling)}</span></td>
-            <td>${p.dimmSlots}</td>
-            <td>${getLabel(lm, 'lanSpeed', p.lanSpeed)}</td>
+            <td>${p.dimmSlots} ${p.dimmType}</td>
+            <td>${p.nodeCount > 1 ? p.nodeCount + ' nodes' : '1'}</td>
             <td class="result-arrow-cell">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                     <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
