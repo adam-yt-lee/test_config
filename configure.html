@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Server Configurator - Configure</title>
-    <link rel="stylesheet" href="styles.css?v=4">
+    <link rel="stylesheet" href="styles.css?v=5">
     <script src="validator.js"></script>
     <script src="dataLoader.js"></script>
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
 </head>
 <body>
     <div class="configurator-wrapper">
@@ -52,6 +52,47 @@
         </div>
     </div>
 
+    <!-- ====================== SECTION MODAL ====================== -->
+    <div class="modal-overlay" id="section-modal" style="display:none" onclick="handleModalOverlayClick(event)">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-title">Select</span>
+                <button class="modal-close-btn" onclick="closeModal()" title="關閉">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-filters">
+                <div class="modal-filter-row">
+                    <div class="modal-filter-item">
+                        <label class="modal-filter-label">Brand</label>
+                        <select class="modal-select" id="modal-brand" onchange="updateModalOptions()">
+                            <option value="">All Brands</option>
+                        </select>
+                    </div>
+                    <div class="modal-filter-item">
+                        <label class="modal-filter-label">Sub Group</label>
+                        <select class="modal-select" id="modal-subgroup" onchange="updateModalOptions()">
+                            <option value="">All Groups</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-search-row">
+                    <input type="text" class="modal-search-input" id="modal-search"
+                           placeholder="搜尋 MPN 或關鍵字..."
+                           oninput="updateModalOptions()">
+                </div>
+            </div>
+            <div class="modal-dep-warning" id="modal-dep-warning" style="display:none"></div>
+            <div class="modal-options-list" id="modal-options-list"></div>
+            <div class="modal-footer">
+                <span class="modal-selection-hint" id="modal-selection-hint"></span>
+                <button class="btn btn-submit" style="padding:7px 24px;font-size:13px;" onclick="closeModal()">完成</button>
+            </div>
+        </div>
+    </div>
+
 <script>
 // ============================================
 // URL params
@@ -60,6 +101,11 @@ function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
     return { productId: params.get('product'), editIndex: params.get('edit') !== null ? parseInt(params.get('edit')) : -1 };
 }
+
+// ============================================
+// Modal State
+// ============================================
+let currentModalUID = null;
 
 // ============================================
 // Initialize
@@ -72,7 +118,6 @@ function initConfigure() {
     selectedProduct = products.find(p => p.id === productId);
     if (!selectedProduct) { window.location.href = 'index.html'; return; }
 
-    // Build nodeConfigs
     activeNodeConfigs = selectedProduct.nodes.map((nodeSpec, idx) => ({
         nodeIdx: idx,
         nodeId: nodeSpec.nodeId,
@@ -81,7 +126,6 @@ function initConfigure() {
         sections: createConfigSections(selectedProduct, nodeSpec),
     }));
 
-    // Restore saved cart config if editing
     if (editIndex >= 0 && cartItems[editIndex]) {
         editingCartIndex = editIndex;
         const saved = cartItems[editIndex];
@@ -108,7 +152,7 @@ function initConfigure() {
 }
 
 // ============================================
-// Render the full configure page
+// Render the full configure page (tabbed layout)
 // ============================================
 function renderConfigPage() {
     const content = document.getElementById('config-content');
@@ -135,7 +179,7 @@ function renderConfigPage() {
         </div>
     </div>`;
 
-    // Node Configuration section (for multinode)
+    // Node qty row (multi-node)
     if (p.isMultiNode) {
         html += `<div class="node-config-header">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.86.18-1.3 0-2.6-2.1-4.7-4.7-4.7-1.54 0-2.95.74-3.84 1.9L8 3.64C7.09 2.5 5.71 1.7 4.1 1.7 1.5 1.7 0 3.8 0 6.4c0 .6.11 1.17.26 1.6H0v14h24V8h-4V6zm-8-3.3c1.49 0 2.7 1.21 2.7 2.7 0 .44-.11.86-.28 1.3H12v-1.3c0-1.49 0-2.7 0-2.7zM2.18 6.4C2.18 5 3.4 3.8 4.8 3.8c.9 0 1.65.47 2.1 1.14L8 6.7H2.27c-.06-.1-.09-.2-.09-.3zM22 22H2V10h20v12z"/></svg>
@@ -158,7 +202,7 @@ function renderConfigPage() {
         html += `</div>`;
     }
 
-    // Sections per node
+    // Per-node config area (tabs + selected items)
     activeNodeConfigs.forEach(nc => {
         const nodeLabel = nc.nodeId ? `Node ${nc.nodeId}` : null;
         if (p.isMultiNode && nodeLabel) {
@@ -167,14 +211,16 @@ function renderConfigPage() {
                 <span class="node-slot-info">${nc.nodeSpec.pcieSlots.length} PCIe slot(s)</span>
             </div>`;
         }
-
-        nc.sections.forEach(section => {
-            const uid = makeUID(nc.nodeIdx, section.key);
-            html += section.render(uid);
-        });
+        html += `<div class="node-config-area">
+            <div class="section-tabs-bar" id="tabs-bar-${nc.nodeIdx}">
+                ${renderSectionTabsHTML(nc)}
+            </div>
+            <div class="selected-items-area" id="selected-area-${nc.nodeIdx}">
+                ${renderSelectedItemsHTML(nc)}
+            </div>
+        </div>`;
     });
 
-    // PCIe slot panel
     html += `<div id="pcie-slot-panel"></div>`;
     html += `<div id="conflict-warnings-panel"></div>`;
 
@@ -184,323 +230,408 @@ function renderConfigPage() {
 }
 
 // ============================================
-// Toggle section panel (collapsible "+" button)
+// Render section tabs bar HTML
 // ============================================
-function toggleSectionPanel(uid) {
-    const panel = document.getElementById('panel-' + uid);
-    const btn   = document.getElementById('btn-' + uid);
-    if (!panel) return;
+function renderSectionTabsHTML(nc) {
+    return nc.sections.map(section => {
+        const uid = makeUID(nc.nodeIdx, section.key);
+        const count = Object.keys(section.selections).length;
+        const typeClass = { single: 'tab-required', multi: 'tab-multi', optional: 'tab-optional' }[section.type] || '';
+        const isBlocked = isTabDependencyBlocked(uid, section, nc);
+        return `<button class="section-tab ${count > 0 ? 'tab-has-selection' : ''} ${typeClass} ${isBlocked ? 'tab-blocked' : ''}"
+                        onclick="openSectionModal('${uid}')"
+                        title="${section.name}${isBlocked ? ' (請先選擇依賴項目)' : ''}">
+            <span class="tab-name">${section.name}</span>
+            ${count > 0 ? `<span class="tab-count">${count}</span>` : ''}
+            ${section.type !== 'optional' && count === 0 ? `<span class="tab-dot tab-dot-empty"></span>` : ''}
+            ${section.type !== 'optional' && count > 0 ? `<span class="tab-dot tab-dot-filled"></span>` : ''}
+        </button>`;
+    }).join('');
+}
 
-    const isOpen = panel.style.display !== 'none';
-
-    // Close all other panels
-    document.querySelectorAll('.config-section-panel').forEach(p => { p.style.display = 'none'; });
-    document.querySelectorAll('.section-plus-btn').forEach(b => b.classList.remove('panel-open'));
-
-    if (!isOpen) {
-        panel.style.display = 'block';
-        btn.classList.add('panel-open');
-        // Check if this is a dependent section
-        const section = findSectionByUID(uid);
-        if (section && section.dependsOn) {
-            refreshDependentSection(uid, section);
-        }
+function isTabDependencyBlocked(uid, section, nc) {
+    if (!section.dependsOn) return false;
+    if (section.dependsOn === 'disk') {
+        if (section.key === 'raid') return !hasNonM2DiskSelected(nc);
+        if (section.key === 'm2raid') return !hasM2SSDSelected(nc);
     }
+    if (section.dependsOn === 'nic') {
+        const nicSec = nc.sections.find(s => s.key === 'nic');
+        return !nicSec || Object.keys(nicSec.selections).length === 0;
+    }
+    if (section.dependsOn === 'raid') {
+        const raidSec = nc.sections.find(s => s.key === 'raid');
+        return !raidSec || Object.keys(raidSec.selections).length === 0;
+    }
+    return false;
 }
 
 // ============================================
-// Refresh RAID / Transceiver dependent panel
+// Render selected items HTML
 // ============================================
-function refreshDependentSection(uid, section) {
-    const depEl = document.getElementById('dep-' + uid);
-    if (!depEl) return;
+function renderSelectedItemsHTML(nc) {
+    function getItems(key) {
+        const sec = nc.sections.find(s => s.key === key);
+        if (!sec) return [];
+        return Object.entries(sec.selections).map(([optId, qty]) => {
+            const opt = sec.options.find(o => o.id === optId);
+            return opt ? { section: sec, opt, qty, uid: makeUID(nc.nodeIdx, key) } : null;
+        }).filter(Boolean);
+    }
 
+    function getSSDItems(m2Only) {
+        const sec = nc.sections.find(s => s.key === 'ssd');
+        if (!sec) return [];
+        return Object.entries(sec.selections).map(([optId, qty]) => {
+            const opt = sec.options.find(o => o.id === optId);
+            if (!opt) return null;
+            if (m2Only && !opt.meta.isM2) return null;
+            if (!m2Only && opt.meta.isM2) return null;
+            return { section: sec, opt, qty, uid: makeUID(nc.nodeIdx, 'ssd') };
+        }).filter(Boolean);
+    }
+
+    const cpuItems  = getItems('cpu');
+    const dimmItems = getItems('dimm');
+    const gpuItems  = getItems('gpu');
+    const hbaItems  = getItems('hba');
+    const hddItems  = getItems('hdd');
+    const stdSSDItems = getSSDItems(false);
+    const m2SSDItems  = getSSDItems(true);
+    const nicItems  = getItems('nic');
+    const raidItems = getItems('raid');
+    const m2raidItems = getItems('m2raid');
+    const bbuItems  = getItems('bbu');
+    const transItems = getItems('transceiver');
+
+    const totalCount = cpuItems.length + dimmItems.length + gpuItems.length + hbaItems.length +
+        hddItems.length + stdSSDItems.length + m2SSDItems.length + nicItems.length +
+        raidItems.length + m2raidItems.length + bbuItems.length + transItems.length;
+
+    if (totalCount === 0) {
+        return `<div class="selected-empty">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="currentColor" style="opacity:0.2">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            <p>點選上方選項卡新增配件</p>
+        </div>`;
+    }
+
+    // Decide grouping
+    const hasStorageDisk = hddItems.length > 0 || stdSSDItems.length > 0;
+    const hasStorageDep  = raidItems.length > 0 || bbuItems.length > 0;
+    const doStorageGroup = hasStorageDisk && hasStorageDep;
+
+    const doM2Group = m2SSDItems.length > 0 && m2raidItems.length > 0;
+    const doNetGroup = nicItems.length > 0 && transItems.length > 0;
+
+    function renderGroup(items, label, forceGroup) {
+        if (!items.length) return '';
+        if (forceGroup) {
+            return `<div class="related-group">
+                <div class="related-group-label">${label}</div>
+                ${items.map(renderItemCard).join('')}
+            </div>`;
+        }
+        return items.map(renderItemCard).join('');
+    }
+
+    let html = '<div class="selected-items-list">';
+
+    // Standalone
+    [...cpuItems, ...dimmItems, ...gpuItems, ...hbaItems].forEach(item => {
+        html += renderItemCard(item);
+    });
+
+    // Storage group
+    const storageAll = [...hddItems, ...stdSSDItems, ...raidItems, ...bbuItems];
+    if (doStorageGroup) {
+        html += `<div class="related-group">
+            <div class="related-group-label">Storage</div>
+            ${storageAll.map(renderItemCard).join('')}
+        </div>`;
+    } else {
+        storageAll.forEach(item => { html += renderItemCard(item); });
+    }
+
+    // M.2 group
+    const m2All = [...m2SSDItems, ...m2raidItems];
+    if (doM2Group) {
+        html += `<div class="related-group">
+            <div class="related-group-label">M.2 Storage</div>
+            ${m2All.map(renderItemCard).join('')}
+        </div>`;
+    } else {
+        m2All.forEach(item => { html += renderItemCard(item); });
+    }
+
+    // Networking group
+    const netAll = [...nicItems, ...transItems];
+    if (doNetGroup) {
+        html += `<div class="related-group">
+            <div class="related-group-label">Networking</div>
+            ${netAll.map(renderItemCard).join('')}
+        </div>`;
+    } else {
+        netAll.forEach(item => { html += renderItemCard(item); });
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function renderItemCard({ section, opt, qty, uid }) {
+    const isMulti = section.type !== 'single';
+    const safeId = (uid + '_' + opt.id).replace(/[^a-z0-9]/gi, '_');
+    const typeColors = { cpu:'#dcfce7', dimm:'#dcfce7', gpu:'#dbeafe', hdd:'#fef9c3', ssd:'#fef9c3',
+                         nic:'#ede9fe', hba:'#ede9fe', raid:'#fee2e2', m2raid:'#fee2e2',
+                         bbu:'#ffedd5', transceiver:'#ede9fe' };
+    const sectionColor = typeColors[section.key] || '#f1f5f9';
+    const optIdEsc = opt.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+    return `<div class="selected-item-card" id="scard-${safeId}">
+        <div class="sic-top">
+            <span class="sic-section-badge" style="background:${sectionColor}">${section.name}</span>
+            <button class="sic-remove-btn" onclick="removeSelectedItem('${uid}', '${optIdEsc}')" title="移除">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="sic-name" title="${opt.name}">${opt.name}</div>
+        <div class="sic-mpn">MPN: ${opt.id}</div>
+        <div class="sic-bottom">
+            ${isMulti
+                ? `<div class="sic-qty-ctrl">
+                    <button onclick="adjustSelectedQty('${uid}', '${optIdEsc}', -1)">−</button>
+                    <span id="siq-${safeId}">${qty}</span>
+                    <button onclick="adjustSelectedQty('${uid}', '${optIdEsc}', 1)">+</button>
+                   </div>`
+                : `<span class="sic-qty-label">Qty: ${qty}</span>`}
+        </div>
+    </div>`;
+}
+
+// ============================================
+// Refresh a node's tabs + selected area
+// ============================================
+function refreshNodeUI(nodeIdx) {
+    const nc = activeNodeConfigs[nodeIdx];
+    if (!nc) return;
+    const tabsEl = document.getElementById('tabs-bar-' + nodeIdx);
+    const areaEl = document.getElementById('selected-area-' + nodeIdx);
+    if (tabsEl) tabsEl.innerHTML = renderSectionTabsHTML(nc);
+    if (areaEl) areaEl.innerHTML = renderSelectedItemsHTML(nc);
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+// ============================================
+// Open section modal
+// ============================================
+function openSectionModal(uid) {
+    const section = findSectionByUID(uid);
+    if (!section) return;
+    currentModalUID = uid;
+
+    // Build brand/subgroup options
+    const brands    = [...new Set(section.options.map(o => o.brand))].filter(Boolean).sort();
+    const subgroups = [...new Set(section.options.map(o => o.subGroup))].filter(Boolean).sort();
+    document.getElementById('modal-brand').innerHTML =
+        '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+    document.getElementById('modal-subgroup').innerHTML =
+        '<option value="">All Groups</option>' + subgroups.map(s => `<option value="${s}">${s}</option>`).join('');
+    document.getElementById('modal-search').value = '';
+    document.getElementById('modal-title').textContent = 'Select: ' + section.name;
+
+    // Dependency check
+    const depMsg = getModalDepMsg(uid, section);
+    const depEl = document.getElementById('modal-dep-warning');
+    if (depMsg) {
+        depEl.innerHTML = `<div class="dep-hint">${depMsg}</div>`;
+        depEl.style.display = 'block';
+        document.getElementById('modal-options-list').innerHTML = '';
+    } else {
+        depEl.style.display = 'none';
+        updateModalOptions();
+    }
+
+    updateModalSelectionHint();
+    document.getElementById('section-modal').style.display = 'flex';
+}
+
+function getModalDepMsg(uid, section) {
+    if (!section.dependsOn) return null;
     const parsed = parseSectionUID(uid);
     const nc = activeNodeConfigs[parsed.nodeIdx];
-    if (!nc) return;
+    if (!nc) return null;
 
     if (section.dependsOn === 'disk') {
-        const diskSections = nc.sections.filter(s => s.key === 'hdd' || s.key === 'ssd');
-        const diskSelections = [];
-        diskSections.forEach(ds => {
-            Object.entries(ds.selections).forEach(([optId, qty]) => {
-                const opt = ds.options.find(o => o.id === optId);
-                if (opt) diskSelections.push({ section: ds, opt, qty });
-            });
-        });
-
-        if (!diskSelections.length) {
-            depEl.innerHTML = `<div class="dep-hint">⚠ 請先選擇硬碟 (HDD / SSD)，再設定 RAID。</div>`;
-            return;
-        }
-
-        // Build RAID config UI
-        const diskOpts = diskSelections.map((d, i) =>
-            `<option value="${i}">${d.qty}\u00d7 ${d.opt.name}</option>`).join('');
-
-        let html = `<div class="raid-steps">
-            <div class="raid-step">
-                <div class="raid-step-label">Step 1：選擇目標硬碟</div>
-                <select class="raid-select" id="rds-disk-${uid}" onchange="onRaidDiskChange('${uid}')">
-                    <option value="">-- 選擇硬碟 --</option>${diskOpts}
-                </select>
-            </div>
-            <div class="raid-step" id="rds-card-step-${uid}" style="display:none">
-                <div class="raid-step-label">Step 2：選擇 RAID Card</div>
-                <div class="option-list" id="rds-cards-${uid}"></div>
-            </div>
-            <div class="raid-step" id="rds-level-step-${uid}" style="display:none">
-                <div class="raid-step-label">Step 3：選擇 RAID Level</div>
-                <div class="raid-level-btns" id="rds-levels-${uid}"></div>
-            </div>
-            <div class="raid-step" id="rds-cap-step-${uid}" style="display:none">
-                <div class="raid-step-label">可用容量</div>
-                <div class="raid-capacity" id="rds-cap-${uid}">-- GB</div>
-            </div>
-        </div>`;
-        depEl.innerHTML = html;
-        depEl._diskSelections = diskSelections;
-
-    } else if (section.dependsOn === 'nic') {
+        if (section.key === 'raid' && !hasNonM2DiskSelected(nc))
+            return '⚠ 請先選擇硬碟 (HDD 或非 M.2 SSD)，再設定 RAID。<br><small>注意：RAID 不能與 M.2 SSD 建立關聯。</small>';
+        if (section.key === 'm2raid' && !hasM2SSDSelected(nc))
+            return '⚠ 請先選擇 M.2 SSD，再設定 M.2 RAID。<br><small>M.2 RAID 只能與 M.2 SSD 建立關聯。</small>';
+    }
+    if (section.dependsOn === 'nic') {
         const nicSec = nc.sections.find(s => s.key === 'nic');
-        const nicSelections = [];
-        if (nicSec) {
-            Object.entries(nicSec.selections).forEach(([optId, qty]) => {
-                const opt = nicSec.options.find(o => o.id === optId);
-                if (opt) nicSelections.push({ opt, qty });
-            });
-        }
-
-        if (!nicSelections.length) {
-            depEl.innerHTML = `<div class="dep-hint">⚠ 請先選擇 NIC Card，再選擇 Transceiver。</div>`;
-            return;
-        }
-
-        const nicOpts = nicSelections.map((n, i) =>
-            `<option value="${i}">${n.qty}\u00d7 ${n.opt.name}</option>`).join('');
-
-        let html = `<div class="trans-steps">
-            <div class="trans-step">
-                <div class="raid-step-label">Step 1：選擇 NIC</div>
-                <select class="raid-select" id="trs-nic-${uid}" onchange="onTransNicChange('${uid}')">
-                    <option value="">-- 選擇 NIC --</option>${nicOpts}
-                </select>
-            </div>
-            <div class="trans-step" id="trs-module-step-${uid}" style="display:none">
-                <div class="raid-step-label">Step 2：選擇 Transceiver（數量固定為 NIC port 數）</div>
-                <div class="option-list" id="trs-modules-${uid}"></div>
-            </div>
-        </div>`;
-        depEl.innerHTML = html;
-        depEl._nicSelections = nicSelections;
-
-    } else if (section.dependsOn === 'raid') {
+        if (!nicSec || !Object.keys(nicSec.selections).length)
+            return '⚠ 請先選擇 NIC Card，再選擇 Transceiver。';
+    }
+    if (section.dependsOn === 'raid') {
         const raidSec = nc.sections.find(s => s.key === 'raid');
-        const hasRaid = raidSec && Object.keys(raidSec.selections).length > 0;
-        if (!hasRaid) {
-            depEl.innerHTML = `<div class="dep-hint">⚠ 請先選擇 RAID Card，再選擇 BBU。</div>`;
-            return;
+        if (!raidSec || !Object.keys(raidSec.selections).length)
+            return '⚠ 請先選擇 RAID Card，再選擇 BBU。';
+    }
+    return null;
+}
+
+function hasNonM2DiskSelected(nc) {
+    const hddSec = nc.sections.find(s => s.key === 'hdd');
+    if (hddSec && Object.keys(hddSec.selections).length > 0) return true;
+    const ssdSec = nc.sections.find(s => s.key === 'ssd');
+    if (ssdSec) {
+        for (const optId of Object.keys(ssdSec.selections)) {
+            const opt = ssdSec.options.find(o => o.id === optId);
+            if (opt && !opt.meta.isM2) return true;
         }
-        // Show regular option list for BBU
-        depEl.innerHTML = section._renderOptionList(uid);
     }
+    return false;
 }
 
-// ============================================
-// RAID step: disk selected → show compatible RAID cards
-// ============================================
-function onRaidDiskChange(uid) {
-    const select = document.getElementById('rds-disk-' + uid);
-    const depEl  = document.getElementById('dep-' + uid);
-    const cardStep  = document.getElementById('rds-card-step-' + uid);
-    const levelStep = document.getElementById('rds-level-step-' + uid);
-    const capStep   = document.getElementById('rds-cap-step-' + uid);
-    if (!select || !depEl) return;
-
-    if (!select.value) { cardStep.style.display = 'none'; levelStep.style.display = 'none'; capStep.style.display = 'none'; return; }
-    const idx = parseInt(select.value);
-    const diskEntry = depEl._diskSelections[idx];
-    if (!diskEntry) return;
-
-    const isNVMe = diskEntry.opt.meta && diskEntry.opt.meta.isNVMe;
-    const isSAS  = diskEntry.opt.meta && diskEntry.opt.meta.isSAS;
-    const isM2   = diskEntry.opt.meta && diskEntry.opt.meta.isM2;
-
-    const section = findSectionByUID(uid);
-    const cards = section ? section.options.filter(opt => {
-        if (isM2) return opt.meta.isM2Raid;
-        if (opt.meta.isM2Raid) return false;
-        return true;
-    }) : [];
-
-    const cardsHtml = cards.map(c =>
-        `<label class="config-option ${section.selections[c.id] ? 'selected' : ''}">
-            <input type="radio" name="raid-card-${uid}" value="${c.id}"
-                ${section.selections[c.id] ? 'checked' : ''}
-                onchange="onRaidCardSelect('${uid}', '${c.id}')">
-            <div class="option-text"><div class="option-name">${c.name}</div><div class="option-desc">${c.desc}</div></div>
-        </label>`
-    ).join('');
-
-    document.getElementById('rds-cards-' + uid).innerHTML = cardsHtml || '<div class="panel-empty">No compatible RAID cards.</div>';
-    cardStep.style.display = 'block';
-    levelStep.style.display = 'none';
-    capStep.style.display   = 'none';
-    depEl._selectedDisk = diskEntry;
-}
-
-// ============================================
-// RAID step: card selected → show RAID levels
-// ============================================
-function onRaidCardSelect(uid, cardId) {
-    const section = findSectionByUID(uid);
-    if (!section) return;
-    section.selections = {};
-    section.selections[cardId] = 1;
-    updateSectionSummary(uid);
-
-    const levelStep = document.getElementById('rds-level-step-' + uid);
-    const levels = ['RAID 0', 'RAID 1', 'RAID 5', 'RAID 6', 'RAID 10'];
-    const btnsHtml = levels.map(lvl =>
-        `<button class="raid-level-btn" onclick="onRaidLevelSelect('${uid}','${lvl}',this)">${lvl}</button>`
-    ).join('');
-    document.getElementById('rds-levels-' + uid).innerHTML = btnsHtml;
-    levelStep.style.display = 'block';
-    document.getElementById('rds-cap-step-' + uid).style.display = 'none';
-}
-
-// ============================================
-// RAID step: level selected → calculate capacity
-// ============================================
-function onRaidLevelSelect(uid, level, btn) {
-    document.querySelectorAll(`#rds-levels-${uid} .raid-level-btn`).forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    const depEl = document.getElementById('dep-' + uid);
-    const disk  = depEl ? depEl._selectedDisk : null;
-    if (!disk) return;
-
-    const capRaw = (disk.opt.meta && disk.opt.meta.capacity) || '0';
-    const capNum = parseFloat(capRaw.replace(/T$/,'').replace(/G$/,'')) || 0;
-    const isGB   = capRaw.endsWith('G') || parseInt(capRaw) < 100;
-    const capGB  = isGB ? capNum : capNum * 1000;
-    const driveCount = disk.qty;
-
-    let usableGB = 0;
-    if (level === 'RAID 0') usableGB = driveCount * capGB;
-    else if (level === 'RAID 1') usableGB = capGB;
-    else if (level === 'RAID 5') usableGB = driveCount > 2 ? (driveCount - 1) * capGB : 0;
-    else if (level === 'RAID 6') usableGB = driveCount > 3 ? (driveCount - 2) * capGB : 0;
-    else if (level === 'RAID 10') usableGB = (driveCount >= 4 && driveCount % 2 === 0) ? (driveCount / 2) * capGB : 0;
-
-    const capEl = document.getElementById('rds-cap-' + uid);
-    if (capEl) {
-        const tb = usableGB >= 1000 ? (usableGB / 1000).toFixed(1) + ' TB' : usableGB.toFixed(0) + ' GB';
-        capEl.textContent = usableGB > 0 ? `${driveCount}\u00d7 ${disk.opt.name.split(' ')[2] || capRaw} → ${level} Usable: ${tb}` : 'Invalid configuration for ' + level;
+function hasM2SSDSelected(nc) {
+    const ssdSec = nc.sections.find(s => s.key === 'ssd');
+    if (!ssdSec) return false;
+    for (const optId of Object.keys(ssdSec.selections)) {
+        const opt = ssdSec.options.find(o => o.id === optId);
+        if (opt && opt.meta.isM2) return true;
     }
-    document.getElementById('rds-cap-step-' + uid).style.display = 'block';
-    renderPcieSlotPanel();
-    renderConflictWarnings();
+    return false;
 }
 
 // ============================================
-// Transceiver: NIC selected → show compatible transceivers
+// Modal: update filtered option list
 // ============================================
-function onTransNicChange(uid) {
-    const select = document.getElementById('trs-nic-' + uid);
-    const depEl  = document.getElementById('dep-' + uid);
-    const step   = document.getElementById('trs-module-step-' + uid);
-    if (!select || !depEl || !step) return;
-
-    if (!select.value) { step.style.display = 'none'; return; }
-    const idx = parseInt(select.value);
-    const nicEntry = depEl._nicSelections[idx];
-    if (!nicEntry) return;
-
-    const sfpType = nicEntry.opt.meta.sfpType;
-    const ports   = nicEntry.opt.meta.ports;
-    const section = findSectionByUID(uid);
+function updateModalOptions() {
+    if (!currentModalUID) return;
+    const section = findSectionByUID(currentModalUID);
     if (!section) return;
 
-    const compat = section.options.filter(t => {
-        const ti = (t.meta.interface || '').toLowerCase();
-        if (!sfpType) return true;
-        if (sfpType === 'SFP+')   return ti.includes('sfp+') || ti.includes('sfp');
-        if (sfpType === 'SFP28')  return ti.includes('sfp28') || ti.includes('sfp+');
-        if (sfpType === 'QSFP28') return ti.includes('qsfp');
-        return true;
-    });
+    const brand  = document.getElementById('modal-brand').value;
+    const sg     = document.getElementById('modal-subgroup').value;
+    const search = document.getElementById('modal-search').value.trim().toLowerCase();
 
-    const modsHtml = compat.map(t => {
-        const isSelected = !!section.selections[t.id];
-        return `<label class="config-option ${isSelected ? 'selected' : ''}">
-            <input type="radio" name="trans-mod-${uid}" value="${t.id}"
-                ${isSelected ? 'checked' : ''}
-                onchange="onTransSelect('${uid}','${t.id}',${ports})">
-            <div class="option-text"><div class="option-name">${t.name}</div><div class="option-desc">${t.desc}</div></div>
-            <div class="option-qty-fixed">Qty: ${ports} (fixed)</div>
-        </label>`;
+    let opts = section.options;
+    if (brand)  opts = opts.filter(o => o.brand === brand);
+    if (sg)     opts = opts.filter(o => o.subGroup === sg);
+    if (search) opts = opts.filter(o =>
+        o.id.toLowerCase().includes(search) ||
+        o.name.toLowerCase().includes(search) ||
+        (o.desc || '').toLowerCase().includes(search)
+    );
+
+    const listEl = document.getElementById('modal-options-list');
+    if (!opts.length) {
+        listEl.innerHTML = '<div class="panel-empty">No matching options found.</div>';
+        return;
+    }
+
+    const uid = currentModalUID;
+    const isMulti = section.type !== 'single';
+
+    listEl.innerHTML = opts.map(opt => {
+        const isSelected = section.selections[opt.id] !== undefined;
+        const qty = isSelected ? section.selections[opt.id] : 1;
+        const safeId = opt.id.replace(/[^a-z0-9]/gi, '_');
+        const optIdEsc = opt.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        return `<div class="modal-option ${isSelected ? 'mopt-selected' : ''}"
+                     id="mopt-${safeId}"
+                     onclick="modalToggleOption('${uid}', '${optIdEsc}')">
+            <div class="mopt-check">
+                ${isSelected
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="8" fill="none"><path fill="#fff" fill-rule="evenodd" d="M9.218.304a1 1 0 0 1-.022 1.414l-5.187 5a1 1 0 0 1-1.393 0L.804 4.99a1 1 0 0 1 1.392-1.436l1.117 1.052L7.803.282a1 1 0 0 1 1.415.022" clip-rule="evenodd"/></svg>`
+                    : ''}
+            </div>
+            <div class="mopt-text">
+                <div class="mopt-name">${opt.name}</div>
+                <div class="mopt-desc">${opt.desc || ''}</div>
+                <div class="mopt-mpn">MPN: ${opt.id}</div>
+            </div>
+            ${isSelected && isMulti
+                ? `<div class="mopt-qty" onclick="event.stopPropagation()">
+                    <button onclick="modalAdjustQty('${uid}', '${optIdEsc}', -1)">−</button>
+                    <span id="mq-${safeId}">${qty}</span>
+                    <button onclick="modalAdjustQty('${uid}', '${optIdEsc}', 1)">+</button>
+                   </div>`
+                : ''}
+        </div>`;
     }).join('');
 
-    document.getElementById('trs-modules-' + uid).innerHTML = modsHtml || '<div class="panel-empty">No compatible transceivers for this NIC interface.</div>';
-    step.style.display = 'block';
+    updateModalSelectionHint();
 }
 
-function onTransSelect(uid, optId, ports) {
+function modalToggleOption(uid, optId) {
     const section = findSectionByUID(uid);
     if (!section) return;
-    section.selections = {};
-    section.selections[optId] = ports;
-    updateSectionSummary(uid);
-    renderPcieSlotPanel();
-    renderConflictWarnings();
+    section.select(optId);
+    updateModalOptions();
+    const parsed = parseSectionUID(uid);
+    if (parsed) refreshNodeUI(parsed.nodeIdx);
+}
+
+function modalAdjustQty(uid, optId, delta) {
+    const section = findSectionByUID(uid);
+    if (!section || section.selections[optId] === undefined) return;
+    section.setQty(optId, section.selections[optId] + delta);
+    const safeId = optId.replace(/[^a-z0-9]/gi, '_');
+    const el = document.getElementById('mq-' + safeId);
+    if (el) el.textContent = section.selections[optId];
+    const parsed = parseSectionUID(uid);
+    if (parsed) refreshNodeUI(parsed.nodeIdx);
+}
+
+function updateModalSelectionHint() {
+    if (!currentModalUID) return;
+    const section = findSectionByUID(currentModalUID);
+    if (!section) return;
+    const count = Object.keys(section.selections).length;
+    const hintEl = document.getElementById('modal-selection-hint');
+    if (hintEl) hintEl.textContent = count > 0 ? `已選 ${count} 項` : '';
+}
+
+function closeModal() {
+    document.getElementById('section-modal').style.display = 'none';
+    currentModalUID = null;
+}
+
+function handleModalOverlayClick(event) {
+    if (event.target === document.getElementById('section-modal')) closeModal();
 }
 
 // ============================================
-// Section selection events
+// Selected item controls
 // ============================================
-function onSectionSelect(uid, optionId) {
+function removeSelectedItem(uid, optId) {
     const section = findSectionByUID(uid);
     if (!section) return;
-    section.select(optionId);
-    refreshSectionOptionUI(uid, section);
-    updateSectionSummary(uid);
+    delete section.selections[optId];
+    const parsed = parseSectionUID(uid);
+    if (parsed) refreshNodeUI(parsed.nodeIdx);
+}
+
+function adjustSelectedQty(uid, optId, delta) {
+    const section = findSectionByUID(uid);
+    if (!section || section.selections[optId] === undefined) return;
+    section.setQty(optId, section.selections[optId] + delta);
+    const parsed = parseSectionUID(uid);
+    if (!parsed) return;
+    const nc = activeNodeConfigs[parsed.nodeIdx];
+    if (!nc) return;
+    const safeId = (uid + '_' + optId).replace(/[^a-z0-9]/gi, '_');
+    const el = document.getElementById('siq-' + safeId);
+    if (el) el.textContent = section.selections[optId];
     renderPcieSlotPanel();
     renderConflictWarnings();
-}
-
-function adjustOptQty(event, uid, optionId, delta) {
-    event.stopPropagation();
-    const section = findSectionByUID(uid);
-    if (!section || section.selections[optionId] === undefined) return;
-    section.setQty(optionId, section.selections[optionId] + delta);
-    const el = document.getElementById('qty-' + uid + '-' + optionId);
-    if (el) el.textContent = section.selections[optionId];
-    updateSectionSummary(uid);
-    renderPcieSlotPanel();
-    renderConflictWarnings();
-}
-
-function refreshSectionOptionUI(uid, section) {
-    const panel = document.getElementById('panel-' + uid);
-    if (!panel) return;
-    panel.querySelectorAll('.config-option').forEach(label => {
-        const input = label.querySelector('input[type="checkbox"]');
-        if (!input) return;
-        const optId = input.value;
-        const isSelected = section.selections[optId] !== undefined;
-        label.classList.toggle('selected', isSelected);
-        input.checked = isSelected;
-        // Update qty control
-        const qtyEl = label.querySelector('[id^="qty-"]');
-        if (qtyEl && isSelected) qtyEl.textContent = section.selections[optId];
-    });
-}
-
-function updateSectionSummary(uid) {
-    const section = findSectionByUID(uid);
-    const el = document.getElementById('sum-' + uid);
-    if (el && section) el.textContent = section.getSummary();
 }
 
 // ============================================
@@ -527,11 +658,10 @@ function renderPcieSlotPanel() {
     const panel = document.getElementById('pcie-slot-panel');
     if (!panel || !selectedProduct) return;
 
-    // Validate per-node (show first node's result for single-node, all nodes for multi)
     let allWarnings = [];
-    let allSlots = [];
-    let totalCards = 0;
-    let totalSlots = 0;
+    let allSlots    = [];
+    let totalCards  = 0;
+    let totalSlots  = 0;
 
     activeNodeConfigs.forEach(nc => {
         const result = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections);
@@ -547,7 +677,6 @@ function renderPcieSlotPanel() {
             <span class="pcie-slot-title">PCIe Slot Usage</span>
             <span class="pcie-slot-count">${totalCards} / ${totalSlots} slots used</span>
         </div>`;
-
     if (hasWarnings) {
         html += `<div class="pcie-warnings">`;
         allWarnings.forEach(w => {
@@ -557,10 +686,9 @@ function renderPcieSlotPanel() {
         });
         html += `</div>`;
     }
-
     html += `<div class="pcie-slot-grid">`;
     allSlots.forEach(slot => {
-        const occupied   = slot.assigned !== null;
+        const occupied = slot.assigned !== null;
         const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
         html += `<div class="pcie-slot-item ${statusClass}">
             <div class="pcie-slot-type">${slot.type}${slot.nodeLabel ? ' [' + slot.nodeLabel + ']' : ''}</div>
@@ -584,7 +712,7 @@ function renderConflictWarnings() {
     });
     if (!allWarnings.length) { panel.innerHTML = ''; return; }
     let html = `<div class="conflict-warnings-section">
-        <div class="conflict-title">⚠ 規格衝突警告</div>`;
+        <div class="conflict-title">\u26a0 規格衝突警告</div>`;
     allWarnings.forEach(w => { html += `<div class="conflict-item">${w}</div>`; });
     html += `</div>`;
     panel.innerHTML = html;
@@ -612,7 +740,6 @@ function saveDraft() {
 
 function submitConfig() {
     if (!selectedProduct) return;
-    // Validate required sections
     for (const nc of activeNodeConfigs) {
         for (const s of nc.sections) {
             if (!s.isValid()) {
@@ -621,7 +748,6 @@ function submitConfig() {
             }
         }
     }
-    // Check PCIe conflicts
     let pcieOk = true;
     activeNodeConfigs.forEach(nc => {
         const r = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections);
