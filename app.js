@@ -43,13 +43,15 @@ function getSSDFormFactorsForSlot(slotType) {
 // ConfigSection class
 // ============================================
 class ConfigSection {
-    constructor({ key, name, type, dependsOn, options }) {
+    constructor({ key, name, type, dependsOn, options, defaultQty, showQtyCtrl }) {
         this.key = key;
         this.name = name;
         this.type = type;          // 'single' | 'multi' | 'optional'
         this.dependsOn = dependsOn; // null | 'disk' | 'nic' | 'raid'
         this.options = options;
         this.selections = {};
+        this.defaultQty = defaultQty || 1;
+        this.showQtyCtrl = showQtyCtrl || false;
     }
 
     select(optionId) {
@@ -57,10 +59,10 @@ class ConfigSection {
         if (!opt) return;
         if (this.type === 'single') {
             this.selections = {};
-            this.selections[optionId] = 1;
+            this.selections[optionId] = this.defaultQty;
         } else {
             if (this.selections[optionId] !== undefined) delete this.selections[optionId];
-            else this.selections[optionId] = 1;
+            else this.selections[optionId] = this.defaultQty;
         }
     }
 
@@ -205,7 +207,7 @@ function createConfigSections(product, nodeSpec) {
         const seriesKey = Object.keys(CPU_SERIES_GROUPS).find(k => product.cpuSeries.includes(k));
         const groups = seriesKey ? CPU_SERIES_GROUPS[seriesKey] : null;
         const opts = groups ? cpuDef.options.filter(o => groups.includes(o.subGroup)) : cpuDef.options;
-        if (opts.length) sections.push(new ConfigSection({ key: 'cpu', name: `CPU (${product.cpuSockets} per node)`, type: 'single', dependsOn: null, options: opts }));
+        if (opts.length) sections.push(new ConfigSection({ key: 'cpu', name: `CPU ×${product.cpuSockets}`, type: 'single', dependsOn: null, options: opts, defaultQty: product.cpuSockets, showQtyCtrl: true }));
     }
 
     // --- DIMM ---
@@ -213,7 +215,7 @@ function createConfigSections(product, nodeSpec) {
     if (dimmDef && product.dimmSlots > 0) {
         const opts = dimmDef.options.filter(o => o.subGroup === product.dimmType);
         const optsWithInfo = opts.map(o => ({ ...o, desc: o.desc + ` | ${product.dimmSlots} 槽` }));
-        if (optsWithInfo.length) sections.push(new ConfigSection({ key: 'dimm', name: `DIMM (${product.dimmSlots} slots)`, type: 'single', dependsOn: null, options: optsWithInfo }));
+        if (optsWithInfo.length) sections.push(new ConfigSection({ key: 'dimm', name: `DIMM ×${product.dimmSlots}`, type: 'single', dependsOn: null, options: optsWithInfo, defaultQty: product.dimmSlots, showQtyCtrl: true }));
     }
 
     // --- GPU ---

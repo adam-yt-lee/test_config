@@ -81,18 +81,51 @@ function parseSlotList(spec) {
     return slots;
 }
 
-function parseDiskSlotMap(spec) {
-    // Union ALL alternatives so we know all supported types
-    if (!spec || spec === 'none') return {};
-    const result = {};
-    spec.split('|').forEach(config => {
-        config.trim().split('&').forEach(part => {
+function parseSlotSchemes(spec) {
+    // Returns array of scheme objects: [{label, slots:[]}]
+    // "|" separates alternative schemes, "&" joins slots within a scheme
+    if (!spec || spec === 'none') return [{ label: '', slots: [] }];
+    return spec.split('|').map(config => {
+        config = config.trim();
+        const slots = [];
+        config.split('&').forEach(part => {
             part = part.trim();
             const m = part.match(/^(.+?)\*(\d+)$/);
-            if (m) result[m[1].trim()] = parseInt(m[2]);
+            if (m) { for (let j = 0; j < parseInt(m[2]); j++) slots.push(m[1].trim()); }
+            else if (part) slots.push(part);
         });
+        return { label: config, slots };
     });
+}
+
+function parseDiskSchemes(spec) {
+    // Returns array of scheme objects: [{label, map:{slotType:count}}]
+    // "|" separates alternative schemes
+    if (!spec || spec === 'none') return [{ label: '', map: {} }];
+    return spec.split('|').map(config => {
+        config = config.trim();
+        const map = {};
+        config.split('&').forEach(part => {
+            part = part.trim();
+            const m = part.match(/^(.+?)\*(\d+)$/);
+            if (m) map[m[1].trim()] = parseInt(m[2]);
+            else if (part) map[part] = 1;
+        });
+        return { label: config, map };
+    });
+}
+
+function mergeDiskSchemes(schemes) {
+    // Union all disk scheme maps into one
+    const result = {};
+    schemes.forEach(s => { for (const [k, v] of Object.entries(s.map || s)) result[k] = v; });
     return result;
+}
+
+function parseDiskSlotMap(spec) {
+    // Union ALL alternatives so we know all supported types (backward compat)
+    if (!spec || spec === 'none') return {};
+    return mergeDiskSchemes(parseDiskSchemes(spec));
 }
 
 function parseNodeSpecs(field, parseFn) {
@@ -137,12 +170,12 @@ function buildProduct(row) {
     const application = (row['application'] || '').split('|').map(s => s.trim().toLowerCase());
 
     // PCIe slots per node — may be multinode "A: ...\nB: ..."
-    const pcieNodeSpecs = parseNodeSpecs(row['pcieSlotsPerNode'] || '', parseSlotList);
+    const pcieNodeSpecs = parseNodeSpecs(row['pcieSlotsPerNode'] || '', parseSlotSchemes);
     const ocpSlots = parseSlotList(row['ocpslotspernode'] || '');
 
     // Disk slots
-    const frontNodeSpecs = parseNodeSpecs(row['frontDiskSlotsPerNode'] || '', parseDiskSlotMap);
-    const rearNodeSpecs  = parseNodeSpecs(row['rearDiskSlotsPerNode']  || '', parseDiskSlotMap);
+    const frontNodeSpecs = parseNodeSpecs(row['frontDiskSlotsPerNode'] || '', parseDiskSchemes);
+    const rearNodeSpecs  = parseNodeSpecs(row['rearDiskSlotsPerNode']  || '', parseDiskSchemes);
 
     // M.2 (internal) — always common to all nodes
     const m2Map = parseDiskSlotMap(row['internalDiskSlotsPerNode'] || '');
@@ -153,20 +186,34 @@ function buildProduct(row) {
     let nodes;
     if (isMultiNode) {
         const nodeIds = [...new Set(pcieNodeSpecs.map(n => n.nodeId))];
-        nodes = nodeIds.map(nodeId => ({
-            nodeId,
-            defaultQty: nodeCount,
-            pcieSlots: (pcieNodeSpecs.find(n => n.nodeId === nodeId) || { data: [] }).data,
-            frontDiskSlots: (frontNodeSpecs.find(n => n.nodeId === nodeId) || { data: {} }).data,
-            rearDiskSlots:  (rearNodeSpecs.find(n  => n.nodeId === nodeId) || { data: {} }).data,
-        }));
+        nodes = nodeIds.map(nodeId => {
+            const pcieSchemes  = (pcieNodeSpecs.find(n => n.nodeId === nodeId) || { data: [{ label: '', slots: [] }] }).data;
+            const frontSchemes = (frontNodeSpecs.find(n => n.nodeId === nodeId) || { data: [{ label: '', map: {} }] }).data;
+            const rearSchemes  = (rearNodeSpecs.find(n  => n.nodeId === nodeId) || { data: [{ label: '', map: {} }] }).data;
+            return {
+                nodeId,
+                defaultQty: nodeCount,
+                pcieSlotSchemes: pcieSchemes,
+                pcieSlots: pcieSchemes[0] ? pcieSchemes[0].slots : [],
+                frontDiskSchemes: frontSchemes,
+                frontDiskSlots: mergeDiskSchemes(frontSchemes),
+                rearDiskSchemes: rearSchemes,
+                rearDiskSlots: mergeDiskSchemes(rearSchemes),
+            };
+        });
     } else {
+        const pcieSchemes  = pcieNodeSpecs[0] ? pcieNodeSpecs[0].data : [{ label: '', slots: [] }];
+        const frontSchemes = frontNodeSpecs[0] ? frontNodeSpecs[0].data : [{ label: '', map: {} }];
+        const rearSchemes  = rearNodeSpecs[0]  ? rearNodeSpecs[0].data  : [{ label: '', map: {} }];
         nodes = [{
             nodeId: null,
             defaultQty: nodeCount,
-            pcieSlots: pcieNodeSpecs[0] ? pcieNodeSpecs[0].data : [],
-            frontDiskSlots: frontNodeSpecs[0] ? frontNodeSpecs[0].data : {},
-            rearDiskSlots:  rearNodeSpecs[0]  ? rearNodeSpecs[0].data  : {},
+            pcieSlotSchemes: pcieSchemes,
+            pcieSlots: pcieSchemes[0] ? pcieSchemes[0].slots : [],
+            frontDiskSchemes: frontSchemes,
+            frontDiskSlots: mergeDiskSchemes(frontSchemes),
+            rearDiskSchemes: rearSchemes,
+            rearDiskSlots: mergeDiskSchemes(rearSchemes),
         }];
     }
 
