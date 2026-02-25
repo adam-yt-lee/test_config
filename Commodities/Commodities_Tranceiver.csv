@@ -1,13 +1,13 @@
-Brand,section_key,section_name,section type,Sub. Group,MPN,Interface,Mode
-Hi-Optel ,Transceiver,,,1.25G,HTSFP-24-1122TF,SFP,
-AOI,Transceiver,,,10G,A7ELSN85ADMA1110,SFP+,LC
-Light Express,Transceiver,,,10G,M-SSAL-300C-YALE,SFP+,
-Formerica,Transceiver,,,10G,TAS-A1NH1-P11,SFP+,SR 
-Formerica,Transceiver,,,10G,TAS-A1NB1-FAH,SFP+,LR
-Formerica,Transceiver,,,32G,TAS-A1L7G-JTA,SFP28,SR
-Formerica,Transceiver,,,32G,TAS-AAEB1-FTA,SFP28,LR
-Luxshare,Transceiver,,,10G,P591SMA05-SD-T,SFP+,SR
-Luxshare,Transceiver,,,10G,P591SSD05-NC-T,SFP+,LR
-Luxshare,Transceiver,,,25G,P592SMA05-SD-R,SFP28,SR
-Luxshare,Transceiver,,,32G,P592SMA11-SD-T,SFP28,SR
-Luxshare,Transceiver,,,100G,P591QMA22-SD-R,QSFP28,SR4
+Brand,section_key,section_name,section type,Sub. Group,MPN,Option name,Interface,Mode
+Hi-Optel ,Transceiver,Transceiver,optional,1.25G,HTSFP-24-1122TF,Hi-Optel 1.25G SFP,SFP,
+AOI,Transceiver,Transceiver,optional,10G,A7ELSN85ADMA1110,AOI 10G SFP+ LC,SFP+,LC
+Light Express,Transceiver,Transceiver,optional,10G,M-SSAL-300C-YALE,Light Express 10G SFP+,SFP+,
+Formerica,Transceiver,Transceiver,optional,10G,TAS-A1NH1-P11,Formerica 10G SFP+ SR,SFP+,SR 
+Formerica,Transceiver,Transceiver,optional,10G,TAS-A1NB1-FAH,Formerica 10G SFP+ LR,SFP+,LR
+Formerica,Transceiver,Transceiver,optional,32G,TAS-A1L7G-JTA,Formerica 32G SFP28 SR,SFP28,SR
+Formerica,Transceiver,Transceiver,optional,32G,TAS-AAEB1-FTA,Formerica 32G SFP28 LR,SFP28,LR
+Luxshare,Transceiver,Transceiver,optional,10G,P591SMA05-SD-T,Luxshare 10G SFP+ SR,SFP+,SR
+Luxshare,Transceiver,Transceiver,optional,10G,P591SSD05-NC-T,Luxshare 10G SFP+ LR,SFP+,LR
+Luxshare,Transceiver,Transceiver,optional,25G,P592SMA05-SD-R,Luxshare 25G SFP28 SR,SFP28,SR
+Luxshare,Transceiver,Transceiver,optional,32G,P592SMA11-SD-T,Luxshare 32G SFP28 SR,SFP28,SR
+Luxshare,Transceiver,Transceiver,optional,100G,P591QMA22-SD-R,Luxshare 100G QSFP28 SR4,QSFP28,SR4
