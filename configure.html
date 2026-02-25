@@ -118,13 +118,25 @@ function initConfigure() {
     selectedProduct = products.find(p => p.id === productId);
     if (!selectedProduct) { window.location.href = 'index.html'; return; }
 
-    activeNodeConfigs = selectedProduct.nodes.map((nodeSpec, idx) => ({
-        nodeIdx: idx,
-        nodeId: nodeSpec.nodeId,
-        nodeSpec,
-        qty: nodeSpec.defaultQty,
-        sections: createConfigSections(selectedProduct, nodeSpec),
-    }));
+    activeNodeConfigs = selectedProduct.nodes.map((nodeSpec, idx) => {
+        // Clone nodeSpec so we can mutate pcieSlots/frontDiskSlots per active scheme
+        const ns = {
+            ...nodeSpec,
+            pcieSlots: [...(nodeSpec.pcieSlots || [])],
+            frontDiskSlots: { ...(nodeSpec.frontDiskSlots || {}) },
+            rearDiskSlots:  { ...(nodeSpec.rearDiskSlots  || {}) },
+        };
+        return {
+            nodeIdx: idx,
+            nodeId: nodeSpec.nodeId,
+            nodeSpec: ns,
+            qty: nodeSpec.defaultQty,
+            sections: createConfigSections(selectedProduct, ns),
+            activePcieSchemeIdx: 0,
+            activeFrontDiskSchemeIdx: 0,
+            activeRearDiskSchemeIdx: 0,
+        };
+    });
 
     if (editIndex >= 0 && cartItems[editIndex]) {
         editingCartIndex = editIndex;
@@ -212,6 +224,7 @@ function renderConfigPage() {
             </div>`;
         }
         html += `<div class="node-config-area">
+            <div id="scheme-sel-${nc.nodeIdx}">${renderSchemeSelectorsHTML(nc)}</div>
             <div class="section-tabs-bar" id="tabs-bar-${nc.nodeIdx}">
                 ${renderSectionTabsHTML(nc)}
             </div>
@@ -381,7 +394,7 @@ function renderSelectedItemsHTML(nc) {
 }
 
 function renderItemCard({ section, opt, qty, uid }) {
-    const isMulti = section.type !== 'single';
+    const isMulti = section.type !== 'single' || section.showQtyCtrl;
     const safeId = (uid + '_' + opt.id).replace(/[^a-z0-9]/gi, '_');
     const typeColors = { cpu:'#dcfce7', dimm:'#dcfce7', gpu:'#dbeafe', hdd:'#fef9c3', ssd:'#fef9c3',
                          nic:'#ede9fe', hba:'#ede9fe', raid:'#fee2e2', m2raid:'#fee2e2',
@@ -410,6 +423,109 @@ function renderItemCard({ section, opt, qty, uid }) {
                 : `<span class="sic-qty-label">Qty: ${qty}</span>`}
         </div>
     </div>`;
+}
+
+// ============================================
+// Scheme selector helpers
+// ============================================
+function schemeSlotLabel(slots) {
+    const counts = {};
+    slots.forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+    return Object.entries(counts).map(([t, c]) => c > 1 ? `${t}×${c}` : t).join(' + ') || '(empty)';
+}
+
+function diskSchemeLabel(map) {
+    const entries = Object.entries(map || {});
+    if (!entries.length) return '(none)';
+    return entries.map(([t, c]) => `${c}× ${t}`).join(' + ');
+}
+
+function renderSchemeSelectorsHTML(nc) {
+    const ns = nc.nodeSpec;
+    let html = '';
+
+    // PCIe scheme selector (only if >1 scheme)
+    if (ns.pcieSlotSchemes && ns.pcieSlotSchemes.length > 1) {
+        html += `<div class="scheme-selector">
+            <span class="scheme-selector-label">PCIe Layout:</span>
+            <div class="scheme-btn-group">`;
+        ns.pcieSlotSchemes.forEach((scheme, idx) => {
+            const active = idx === nc.activePcieSchemeIdx;
+            const label = schemeSlotLabel(scheme.slots);
+            html += `<button class="scheme-btn ${active ? 'scheme-btn-active' : ''}"
+                title="${scheme.label}"
+                onclick="changePcieScheme(${nc.nodeIdx}, ${idx})">
+                <span class="scheme-btn-idx">Config ${idx + 1}</span>
+                <span class="scheme-btn-detail">${ns.pcieSlotSchemes[idx].slots.length} slots</span>
+            </button>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Front disk scheme selector (only if >1 scheme)
+    if (ns.frontDiskSchemes && ns.frontDiskSchemes.length > 1) {
+        html += `<div class="scheme-selector">
+            <span class="scheme-selector-label">Front Bays:</span>
+            <div class="scheme-btn-group">`;
+        ns.frontDiskSchemes.forEach((scheme, idx) => {
+            const active = idx === nc.activeFrontDiskSchemeIdx;
+            const label = diskSchemeLabel(scheme.map);
+            html += `<button class="scheme-btn ${active ? 'scheme-btn-active' : ''}"
+                title="${scheme.label}"
+                onclick="changeDiskScheme(${nc.nodeIdx}, 'front', ${idx})">
+                ${label}
+            </button>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Rear disk scheme selector (only if >1 scheme)
+    if (ns.rearDiskSchemes && ns.rearDiskSchemes.length > 1) {
+        html += `<div class="scheme-selector">
+            <span class="scheme-selector-label">Rear Bays:</span>
+            <div class="scheme-btn-group">`;
+        ns.rearDiskSchemes.forEach((scheme, idx) => {
+            const active = idx === nc.activeRearDiskSchemeIdx;
+            const label = diskSchemeLabel(scheme.map);
+            html += `<button class="scheme-btn ${active ? 'scheme-btn-active' : ''}"
+                title="${scheme.label}"
+                onclick="changeDiskScheme(${nc.nodeIdx}, 'rear', ${idx})">
+                ${label}
+            </button>`;
+        });
+        html += `</div></div>`;
+    }
+
+    return html ? `<div class="scheme-selectors-row">${html}</div>` : '';
+}
+
+function changePcieScheme(nodeIdx, schemeIdx) {
+    const nc = activeNodeConfigs[nodeIdx];
+    if (!nc) return;
+    nc.activePcieSchemeIdx = schemeIdx;
+    const scheme = nc.nodeSpec.pcieSlotSchemes && nc.nodeSpec.pcieSlotSchemes[schemeIdx];
+    if (scheme) nc.nodeSpec.pcieSlots = scheme.slots;
+    const el = document.getElementById('scheme-sel-' + nodeIdx);
+    if (el) el.innerHTML = renderSchemeSelectorsHTML(nc);
+    renderPcieSlotPanel();
+    renderConflictWarnings();
+}
+
+function changeDiskScheme(nodeIdx, type, schemeIdx) {
+    const nc = activeNodeConfigs[nodeIdx];
+    if (!nc) return;
+    if (type === 'front') {
+        nc.activeFrontDiskSchemeIdx = schemeIdx;
+        const scheme = nc.nodeSpec.frontDiskSchemes && nc.nodeSpec.frontDiskSchemes[schemeIdx];
+        if (scheme) nc.nodeSpec.frontDiskSlots = scheme.map;
+    } else if (type === 'rear') {
+        nc.activeRearDiskSchemeIdx = schemeIdx;
+        const scheme = nc.nodeSpec.rearDiskSchemes && nc.nodeSpec.rearDiskSchemes[schemeIdx];
+        if (scheme) nc.nodeSpec.rearDiskSlots = scheme.map;
+    }
+    const el = document.getElementById('scheme-sel-' + nodeIdx);
+    if (el) el.innerHTML = renderSchemeSelectorsHTML(nc);
+    renderConflictWarnings();
 }
 
 // ============================================
@@ -536,7 +652,7 @@ function updateModalOptions() {
     }
 
     const uid = currentModalUID;
-    const isMulti = section.type !== 'single';
+    const isMulti = section.type !== 'single' || section.showQtyCtrl;
 
     listEl.innerHTML = opts.map(opt => {
         const isSelected = section.selections[opt.id] !== undefined;
