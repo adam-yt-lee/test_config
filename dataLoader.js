@@ -369,21 +369,35 @@ function buildSectionDefs(c) {
 }
 
 // -----------------------------------------------
+// Cached fetch — uses sessionStorage to avoid re-downloading CSVs on navigation
+// -----------------------------------------------
+async function cachedFetch(url) {
+    const key = 'csvCache_' + url;
+    const cached = sessionStorage.getItem(key);
+    if (cached) return cached;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(url + ' ' + r.status);
+    const text = await r.text();
+    try { sessionStorage.setItem(key, text); } catch (e) { /* quota exceeded — ignore */ }
+    return text;
+}
+
+// -----------------------------------------------
 // Main loader
 // -----------------------------------------------
 async function loadData(callback) {
     try {
         const fetches = await Promise.all([
-            fetch('Products.csv').then(r => { if (!r.ok) throw new Error('Products.csv ' + r.status); return r.text(); }),
-            fetch('Filters.csv').then(r => { if (!r.ok) throw new Error('Filters.csv ' + r.status); return r.text(); }),
-            fetch('Commodities/Commodities_CPU.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_DIMM.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_GPU.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_HDD.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_SSD.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_NIC.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_RAID & HBA.csv').then(r => r.text()),
-            fetch('Commodities/Commodities_Tranceiver.csv').then(r => r.text()),
+            cachedFetch('Products.csv'),
+            cachedFetch('Filters.csv'),
+            cachedFetch('Commodities/Commodities_CPU.csv'),
+            cachedFetch('Commodities/Commodities_DIMM.csv'),
+            cachedFetch('Commodities/Commodities_GPU.csv'),
+            cachedFetch('Commodities/Commodities_HDD.csv'),
+            cachedFetch('Commodities/Commodities_SSD.csv'),
+            cachedFetch('Commodities/Commodities_NIC.csv'),
+            cachedFetch('Commodities/Commodities_RAID & HBA.csv'),
+            cachedFetch('Commodities/Commodities_Tranceiver.csv'),
         ]);
         const [prodText, filtText, cpuText, dimmText, gpuText, hddText, ssdText, nicText, raidText, transText] = fetches;
 
