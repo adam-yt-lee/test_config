@@ -53,11 +53,14 @@ function csvRowsToObjects(rows) {
 function normalizeFormFactor(ff) {
     if (!ff) return '';
     const f = ff.trim().replace(/\n/g, ' ').toLowerCase();
-    if (f.includes('22110') || f.includes('22x110')) return 'M.2-22110';
-    if (f.includes('2280') || f.includes('22x80')) return 'M.2-2280';
+    // M.2: classic (22110, 2280) and consolidated notation (M.2/110, M.2/80)
+    if (f.includes('22110') || f.includes('22x110') || /m\.2[\/]?110/.test(f)) return 'M.2-22110';
+    if (f.includes('2280') || f.includes('22x80') || /m\.2[\/]?80/.test(f)) return 'M.2-2280';
     if (f.includes('e1.s')) return 'E1.S';
     if (f.includes('e3.s')) return 'E3.S';
-    if (f.includes('15mm')) return 'U.2-15mm';
+    // 15mm thickness: handles '15mm', '2.5"/15', 'U.3/15', etc.
+    if (f.includes('15mm') || /[\/\-]15$/.test(f) || /[\/\-]15\b/.test(f)) return 'U.2-15mm';
+    // 7mm / 9.5mm / U.2 / U.3 variants
     if (f.includes('9.5mm') || f.includes('u.2') || f.includes('u.3') || f.includes('7mm')) return 'U.2-7mm';
     if (f.includes('3.5')) return 'HDD-3.5';
     if (f.includes('2.5')) return 'SSD-2.5';
@@ -397,6 +400,243 @@ function parseFiltersCSV(rows) {
 }
 
 // -----------------------------------------------
+// Consolidated CSV parser — single file replaces all individual commodity CSVs
+// Columns: section_key, section_name, section type, Brand, Sub.Group, MPN,
+//          Option name, Cores, Threads, Freq(GHz), MaxMemSpeed(MT/s), SRAM_Cache(MB),
+//          DRAM_Cache(GB), BBU, Freq(MT/s), Capacity(GB), FormFactor(/mm), Interface,
+//          HDD_RPM, PCIeVersion, PCIeLane, Spec, Port, Connector, XCVR_Mode
+// -----------------------------------------------
+function parseConsolidatedCSV(rows) {
+    const empty = { cpu:[], dimm:[], gpu:[], hdd:[], ssd:[], nic:[], hba:[], raid:[], m2raid:[], bbu:[], transceiver:[] };
+    if (rows.length < 2) return empty;
+
+    const headers = rows[0].map(h => h.trim());
+    const ci = name => headers.indexOf(name);
+
+    const IDX = {
+        skey:      ci('section_key'),
+        brand:     ci('Brand'),
+        subGroup:  ci('Sub.Group'),
+        mpn:       ci('MPN'),
+        optName:   ci('Option name'),
+        cores:     ci('Cores'),
+        threads:   ci('Threads'),
+        freqGHz:   ci('Freq(GHz)'),
+        maxMem:    ci('MaxMemSpeed(MT/s)'),
+        sramCache: ci('SRAM_Cache(MB)'),
+        bbuCol:    ci('BBU'),
+        freqMTs:   ci('Freq(MT/s)'),
+        capacity:  ci('Capacity(GB)'),
+        ff:        ci('FormFactor(/mm)'),
+        iface:     ci('Interface'),
+        hddRpm:    ci('HDD_RPM'),
+        pcieVer:   ci('PCIeVersion'),
+        pcieLane:  ci('PCIeLane'),
+        spec:      ci('Spec'),
+        port:      ci('Port'),
+        connector: ci('Connector'),
+        xcvrMode:  ci('XCVR_Mode'),
+    };
+
+    const g = (r, idx) => idx >= 0 ? (r[idx] || '').trim() : '';
+
+    const out = { cpu:[], dimm:[], gpu:[], hdd:[], ssd:[], nic:[], hba:[], raid:[], m2raid:[], bbu:[], transceiver:[] };
+
+    rows.slice(1).forEach(r => {
+        const mpn = g(r, IDX.mpn);
+        if (!mpn) return;
+
+        const skey    = g(r, IDX.skey).toLowerCase();
+        const brand   = g(r, IDX.brand);
+        const subGrp  = g(r, IDX.subGroup);
+        const optName = g(r, IDX.optName);
+
+        switch (skey) {
+            case 'cpu': {
+                const cores     = parseInt(g(r, IDX.cores))     || 0;
+                const threads   = parseInt(g(r, IDX.threads))   || 0;
+                const freq      = parseFloat(g(r, IDX.freqGHz)) || 0;
+                const maxMem    = parseInt(g(r, IDX.maxMem))    || 0;
+                const sramCache = parseFloat(g(r, IDX.sramCache)) || 0;
+                out.cpu.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface: '',
+                    name: optName || `${brand} ${subGrp} ${mpn}`,
+                    desc: `${cores}C/${threads}T @ ${freq}GHz | ${subGrp}` +
+                          (maxMem    ? ` | Mem: ${maxMem} MT/s`    : '') +
+                          (sramCache ? ` | Cache: ${sramCache} MB` : ''),
+                    meta: { cores, threads, freq, maxMemSpeed: maxMem, sramCache },
+                });
+                break;
+            }
+            case 'rdimm': {
+                const freq    = parseInt(g(r, IDX.freqMTs))  || 0;
+                const density = parseInt(g(r, IDX.capacity)) || 0;
+                out.dimm.push({
+                    id: mpn, brand, subGroup: 'DDR5', pcieInterface: '',
+                    name: optName || `${brand} DDR5 ${freq}MT/s ${density}GB`,
+                    desc: `DDR5 | ${freq} MT/s | ${density} GB`,
+                    meta: { freq, density },
+                });
+                break;
+            }
+            case 'hdd': {
+                const capGB = parseInt(g(r, IDX.capacity)) || 0;
+                const capTB = capGB / 1000;
+                const ff    = g(r, IDX.ff);
+                const iface = g(r, IDX.iface);
+                const rpm   = parseInt(g(r, IDX.hddRpm)) || 0;
+                out.hdd.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface: '',
+                    name: optName || `${brand} ${capTB}TB ${subGrp} ${ff}`,
+                    desc: `${iface} | ${ff} | ${capTB} TB` + (rpm ? ` | ${rpm} RPM` : ''),
+                    meta: { density: capTB.toString(), formFactor: ff, interface: iface,
+                            isSAS: iface.toUpperCase() === 'SAS', rpm },
+                });
+                break;
+            }
+            case 'ssd': {
+                const cap     = g(r, IDX.capacity);
+                const ff      = g(r, IDX.ff);
+                const iface   = g(r, IDX.iface);
+                const pcieVer = g(r, IDX.pcieVer);
+                const lane    = g(r, IDX.pcieLane);
+                const ffNorm  = normalizeFormFactor(ff);
+                let m2Length  = '';
+                if (ffNorm === 'M.2-2280')  m2Length = '2280';
+                if (ffNorm === 'M.2-22110') m2Length = '22110';
+                const ifaceDesc = pcieVer ? `${iface} ${pcieVer} x${lane}` : iface;
+                out.ssd.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface: '',
+                    name: optName || `${brand} ${subGrp} ${cap}GB ${ff}`,
+                    desc: `${ifaceDesc} | ${ff} | ${cap} GB`,
+                    meta: {
+                        interface: iface, formFactor: ff, formFactorNorm: ffNorm, capacity: cap,
+                        isNVMe: iface.toLowerCase().includes('nvme'),
+                        isSATA: iface.toLowerCase().includes('sata'),
+                        isSAS:  iface.toLowerCase().includes('sas'),
+                        isM2: ffNorm.startsWith('M.2'), m2Length,
+                        pcieVersion: pcieVer, pcieLane: lane,
+                    },
+                });
+                break;
+            }
+            case 'gpu': {
+                const ff      = g(r, IDX.ff);
+                const pcieVer = g(r, IDX.pcieVer);
+                const lane    = g(r, IDX.pcieLane);
+                const sgl     = subGrp.toLowerCase();
+                // PCIe-based GPUs occupy a PCIe x16 slot; NVLink bridges, HGX and UBB boards do not
+                const pcieInterface = (sgl === 'pcie' || sgl === 'pcie-ac' || sgl === 'pcie-lc') ? 'PCIe-x16' : '';
+                out.gpu.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface,
+                    name: optName || `${brand} ${mpn}`,
+                    desc: `${brand} | ${subGrp}` +
+                          (ff      ? ` | ${ff}`                       : '') +
+                          (pcieVer ? ` | ${pcieVer} x${lane}`         : ''),
+                    meta: { spec: optName, formFactor: ff, pcieVersion: pcieVer, pcieLane: lane },
+                });
+                break;
+            }
+            case 'hba': {
+                const ff      = g(r, IDX.ff);
+                const pcieVer = g(r, IDX.pcieVer);
+                const lane    = g(r, IDX.pcieLane);
+                const spec    = g(r, IDX.spec);
+                const conn    = g(r, IDX.connector);
+                const portMatch     = spec.match(/(\d+)i\b/);
+                const internalPorts = portMatch ? parseInt(portMatch[1]) : 0;
+                const pcieInterface = lane === '16' ? 'PCIe-x16' : 'PCIe-x8';
+                out.hba.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface,
+                    name: optName || `${brand} ${spec}`,
+                    desc: spec +
+                          (internalPorts ? ` | ${internalPorts}i ports`   : '') +
+                          (pcieVer       ? ` | ${pcieVer} x${lane}`        : '') +
+                          (conn          ? ` | ${conn}`                     : ''),
+                    meta: { spec, internalPorts, isM2Raid: false,
+                            formFactor: ff, pcieVersion: pcieVer, pcieLane: lane, connector: conn },
+                });
+                break;
+            }
+            case 'raid': {
+                const ff        = g(r, IDX.ff);
+                const pcieVer   = g(r, IDX.pcieVer);
+                const lane      = g(r, IDX.pcieLane);
+                const spec      = g(r, IDX.spec);
+                const conn      = g(r, IDX.connector);
+                const compatBBU = g(r, IDX.bbuCol);
+                const isM2Raid  = subGrp.toUpperCase() === 'M2';
+                const portMatch     = spec.match(/(\d+)i\b/);
+                const internalPorts = portMatch ? parseInt(portMatch[1]) : 0;
+                const pcieInterface = lane === '16' ? 'PCIe-x16' : 'PCIe-x8';
+                const item = {
+                    id: mpn, brand, subGroup: subGrp, pcieInterface,
+                    name: optName || `${brand} ${spec}`,
+                    desc: (isM2Raid ? 'M.2 RAID card' : spec) +
+                          (internalPorts           ? ` | ${internalPorts}i ports`   : '') +
+                          (pcieVer                 ? ` | ${pcieVer} x${lane}`        : '') +
+                          (compatBBU && compatBBU !== 'N/A' ? ` | BBU: ${compatBBU}` : '') +
+                          (conn                    ? ` | ${conn}`                     : ''),
+                    meta: { spec, internalPorts, isM2Raid,
+                            formFactor: ff, pcieVersion: pcieVer, pcieLane: lane, connector: conn },
+                };
+                if (isM2Raid) out.m2raid.push(item);
+                else          out.raid.push(item);
+                break;
+            }
+            case 'bbu': {
+                const spec = g(r, IDX.spec);
+                out.bbu.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface: '',
+                    name: optName || `${brand} ${spec}`,
+                    desc: `Battery Backup Unit | ${spec}`,
+                    meta: { spec, internalPorts: 0, isM2Raid: false },
+                });
+                break;
+            }
+            case 'nic card': {
+                const ff      = g(r, IDX.ff);
+                const pcieVer = g(r, IDX.pcieVer);
+                const lane    = g(r, IDX.pcieLane);
+                const ports   = parseInt(g(r, IDX.port)) || 1;
+                const conn    = g(r, IDX.connector);
+                const speedN  = parseInt(subGrp) || 0;
+                const ffl     = ff.toLowerCase();
+                let pcieInterface = lane === '16' ? 'PCIe-x16' : 'PCIe-x8';
+                if (ffl.includes('ocp3.0') || ffl.includes('ocp 3.0')) {
+                    pcieInterface = (ports >= 4 || speedN >= 100) ? 'OCP3.0-x16' : 'OCP3.0-x8';
+                } else if (ffl.includes('ocp2.0')) {
+                    pcieInterface = 'OCP2.0';
+                }
+                out.nic.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface,
+                    name: optName || `${brand} ${mpn} ${subGrp}G ${ports}P`,
+                    desc: `${brand} | ${subGrp}G | ${ports} port(s) | ${ff}` + (conn ? ` | ${conn}` : ''),
+                    meta: { speed: speedN, speedStr: subGrp, ports, formFactor: ff,
+                            sfpType: conn, isOCP: ffl.includes('ocp'),
+                            pcieVersion: pcieVer, pcieLane: lane },
+                });
+                break;
+            }
+            case 'transceiver': {
+                const conn     = g(r, IDX.connector);
+                const xcvrMode = g(r, IDX.xcvrMode);
+                const speedN   = parseInt(subGrp) || 0;
+                out.transceiver.push({
+                    id: mpn, brand, subGroup: subGrp, pcieInterface: '',
+                    name: optName || `${brand} ${subGrp}G ${conn} ${xcvrMode}`.trim(),
+                    desc: `${subGrp}G | ${conn} | ${xcvrMode}`,
+                    meta: { speed: speedN, interface: conn, mode: xcvrMode },
+                });
+                break;
+            }
+        }
+    });
+
+    return out;
+}
+
+// -----------------------------------------------
 // Section def builder
 // -----------------------------------------------
 function buildSectionDefs(c) {
@@ -430,41 +670,19 @@ async function cachedFetch(url) {
 }
 
 // -----------------------------------------------
-// Main loader
+// Main loader — uses consolidated commodity file
 // -----------------------------------------------
 async function loadData(callback) {
     try {
-        const fetches = await Promise.all([
+        const [prodText, filtText, commText] = await Promise.all([
             cachedFetch('Products.csv'),
             cachedFetch('Filters.csv'),
-            cachedFetch('Commodities/Commodities_CPU.csv'),
-            cachedFetch('Commodities/Commodities_DIMM.csv'),
-            cachedFetch('Commodities/Commodities_GPU.csv'),
-            cachedFetch('Commodities/Commodities_HDD.csv'),
-            cachedFetch('Commodities/Commodities_SSD.csv'),
-            cachedFetch('Commodities/Commodities_NIC.csv'),
-            cachedFetch('Commodities/Commodities_RAID & HBA.csv'),
-            cachedFetch('Commodities/Commodities_Tranceiver.csv'),
+            cachedFetch('Consolidated_Commodities_20260303.csv'),
         ]);
-        const [prodText, filtText, cpuText, dimmText, gpuText, hddText, ssdText, nicText, raidText, transText] = fetches;
 
-        products = csvRowsToObjects(parseCSV(prodText)).map(buildProduct).filter(p => p.id);
-        filterCategories = parseFiltersCSV(parseCSV(filtText));
-
-        const raidSec = parseRAIDHBARows(parseCSV(raidText));
-        configSectionDefs = buildSectionDefs({
-            cpu:         parseCPURows(parseCSV(cpuText)),
-            dimm:        parseDIMMRows(parseCSV(dimmText)),
-            gpu:         parseGPURows(parseCSV(gpuText)),
-            hdd:         parseHDDRows(parseCSV(hddText)),
-            ssd:         parseSSDRows(parseCSV(ssdText)),
-            nic:         parseNICRows(parseCSV(nicText)),
-            hba:         raidSec.HBA,
-            raid:        raidSec.Raid,
-            m2raid:      raidSec['M.2 Raid'],
-            bbu:         raidSec.BBU,
-            transceiver: parseTransceiverRows(parseCSV(transText)),
-        });
+        products          = csvRowsToObjects(parseCSV(prodText)).map(buildProduct).filter(p => p.id);
+        filterCategories  = parseFiltersCSV(parseCSV(filtText));
+        configSectionDefs = buildSectionDefs(parseConsolidatedCSV(parseCSV(commText)));
 
         if (callback) callback();
     } catch (err) {

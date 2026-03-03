@@ -95,6 +95,68 @@
 <script src="app.js?v=5"></script>
 <script>
 // ============================================
+// Spec tags — render key specs as chips in modal + item cards
+// ============================================
+function buildSpecTags(sectionKey, opt) {
+    const m = opt.meta || {};
+    const tags = [];
+
+    switch (sectionKey) {
+        case 'cpu':
+            if (m.cores)        tags.push(['cores',  `${m.cores}C / ${m.threads || 0}T`]);
+            if (m.maxMemSpeed)  tags.push(['mem',    `Mem ${m.maxMemSpeed} MT/s`]);
+            if (m.sramCache)    tags.push(['cache',  `Cache ${m.sramCache} MB`]);
+            break;
+        case 'dimm':
+            if (m.freq)         tags.push(['speed',  `${m.freq} MT/s`]);
+            if (m.density)      tags.push(['cap',    `${m.density} GB`]);
+            break;
+        case 'hdd':
+            if (m.interface)    tags.push(['iface',  m.interface]);
+            if (m.density)      tags.push(['cap',    `${m.density} TB`]);
+            if (m.rpm)          tags.push(['rpm',    `${m.rpm} RPM`]);
+            break;
+        case 'ssd': {
+            const ifLabel = m.pcieVersion ? `${m.interface} ${m.pcieVersion} x${m.pcieLane}` : m.interface;
+            if (ifLabel)        tags.push(['iface',  ifLabel]);
+            if (m.formFactor)   tags.push(['ff',     m.formFactor]);
+            if (m.capacity)     tags.push(['cap',    `${m.capacity} GB`]);
+            break;
+        }
+        case 'gpu':
+            if (m.formFactor)   tags.push(['ff',     m.formFactor]);
+            if (m.pcieVersion)  tags.push(['pcie',   `${m.pcieVersion} x${m.pcieLane}`]);
+            break;
+        case 'hba':
+        case 'raid':
+        case 'm2raid':
+            if (m.pcieVersion)      tags.push(['pcie',  `${m.pcieVersion} x${m.pcieLane}`]);
+            if (m.internalPorts > 0) tags.push(['ports', `${m.internalPorts}i`]);
+            if (m.connector)        tags.push(['conn',  m.connector]);
+            break;
+        case 'nic':
+            if (m.speedStr)     tags.push(['speed',  `${m.speedStr}G`]);
+            if (m.ports)        tags.push(['ports',  `${m.ports}P`]);
+            if (m.sfpType)      tags.push(['conn',   m.sfpType]);
+            if (m.formFactor)   tags.push(['ff',     m.formFactor]);
+            break;
+        case 'transceiver':
+            if (m.speed)        tags.push(['speed',  `${m.speed}G`]);
+            if (m.interface)    tags.push(['conn',   m.interface]);
+            if (m.mode)         tags.push(['mode',   m.mode]);
+            break;
+        case 'bbu':
+            if (m.spec)         tags.push(['cache',  m.spec]);
+            break;
+    }
+
+    if (!tags.length) return '';
+    return `<div class="spec-tags">${tags.map(([cls, lbl]) =>
+        `<span class="spec-tag spec-tag-${cls}">${lbl}</span>`
+    ).join('')}</div>`;
+}
+
+// ============================================
 // URL params
 // ============================================
 function getUrlParams() {
@@ -413,6 +475,7 @@ function renderItemCard({ section, opt, qty, uid }) {
         </div>
         <div class="sic-name" title="${opt.name}">${opt.name}</div>
         <div class="sic-mpn">MPN: ${opt.id}</div>
+        ${buildSpecTags(section.key, opt)}
         <div class="sic-bottom">
             ${isMulti
                 ? `<div class="sic-qty-ctrl">
@@ -670,7 +733,7 @@ function updateModalOptions() {
             </div>
             <div class="mopt-text">
                 <div class="mopt-name">${opt.name}</div>
-                <div class="mopt-desc">${opt.desc || ''}</div>
+                ${buildSpecTags(section.key, opt)}
                 <div class="mopt-mpn">MPN: ${opt.id}</div>
             </div>
             ${isSelected && isMulti

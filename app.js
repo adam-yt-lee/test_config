@@ -12,13 +12,14 @@ let cartItems = JSON.parse(localStorage.getItem('serverCartItems') || '[]');
 
 // ============================================
 // CPU series → Sub.Group mapping
+// Sub.Group values must match Consolidated_Commodities_20260303.csv
 // ============================================
 const CPU_SERIES_GROUPS = {
     'xeon-6':    ['Granite Rapids AP', 'Granite Rapids SP', 'Sierra Forest SP'],
     'xeon-5':    ['Emerald Rapids'],
     'xeon-4':    ['Emerald Rapids'],
     'xeon-3':    ['Emerald Rapids'],
-    'epyc-9005': ['Turin Dense', 'Turin Balanced', 'Turin Core'],
+    'epyc-9005': ['Turin'],
     'epyc-9004': ['Genoa'],
     'epyc-7003': ['Milan'],
     'epyc-7002': ['Rome'],
