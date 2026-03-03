@@ -1663,6 +1663,27 @@ body {
 .mopt-desc { font-size: 11px; color: #64748b; margin-top: 1px; }
 .mopt-mpn { font-size: 10px; color: #94a3b8; font-family: monospace; margin-top: 2px; }
 
+/* ---- Spec chips (modal options + selected item cards) ---- */
+.spec-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px; }
+.spec-tag {
+    display: inline-flex; align-items: center;
+    padding: 1px 7px; border-radius: 10px;
+    font-size: 10px; font-weight: 500; line-height: 1.6;
+    background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
+}
+.spec-tag-cores  { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.spec-tag-mem    { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.spec-tag-cache  { background: #ede9fe; color: #7c3aed; border-color: #ddd6fe; }
+.spec-tag-speed  { background: #fef3c7; color: #d97706; border-color: #fde68a; }
+.spec-tag-cap    { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+.spec-tag-rpm    { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.spec-tag-iface  { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.spec-tag-ff     { background: #fef9c3; color: #a16207; border-color: #fde047; }
+.spec-tag-pcie   { background: #ffe4e6; color: #be123c; border-color: #fecdd3; }
+.spec-tag-ports  { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.spec-tag-conn   { background: #f5f3ff; color: #6d28d9; border-color: #ede9fe; }
+.spec-tag-mode   { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+
 .mopt-qty {
     display: flex;
     align-items: center;
