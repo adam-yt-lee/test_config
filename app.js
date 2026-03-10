@@ -15,16 +15,26 @@ let specMapping = {};
 
 // ============================================
 // Disk slot → compatible SSD form factors
+// Driven by SpecMapping.csv (commodity_type = "ssd").
+// Falls back to built-in rules when the mapping is not yet loaded.
 // ============================================
 function getSSDFormFactorsForSlot(slotType) {
     const s = slotType.toLowerCase();
+    const rules = specMapping['ssd'];
+    if (rules && rules.length) {
+        const ffs = new Set();
+        rules.forEach(r => {
+            if (s.includes(r.spec) && (!r.also || s.includes(r.also))) ffs.add(r.value);
+        });
+        return [...ffs];
+    }
+    // Fallback (pre-load or missing CSV)
     if (s.includes('m.2_22110')) return ['M.2-22110', 'M.2-2280'];
     if (s.includes('m.2_2280')) return ['M.2-2280'];
     if (s.includes('e1.s')) return ['E1.S'];
     if (s.includes('e3.s')) return ['E3.S'];
     if (s.includes('15mm')) return ['U.2-15mm'];
     if (s.includes('9.5mm') || s.includes('7mm')) {
-        // Accept SATA/SAS form factors too when the bay supports those protocols
         const ffs = ['U.2-7mm'];
         if (s.includes('sata') || s.includes('sas')) ffs.push('SSD-2.5');
         return ffs;
@@ -179,8 +189,14 @@ function createConfigSections(product, nodeSpec) {
         ...Object.keys(nodeSpec.frontDiskSlots || {}),
         ...Object.keys(nodeSpec.rearDiskSlots  || {}),
     ];
-    const hasDisks     = allDiskSlots.length > 0;
-    const has35Slot    = allDiskSlots.some(s => s.includes('3.5'));
+    const hasDisks  = allDiskSlots.length > 0;
+    // Use SpecMapping "hdd" rules to identify HDD-compatible slots (fallback: "3.5" substring)
+    const hddRules  = specMapping['hdd'] || [];
+    const has35Slot = allDiskSlots.some(s => {
+        const sl = s.toLowerCase();
+        if (hddRules.length) return hddRules.some(r => sl.includes(r.spec) && (!r.also || sl.includes(r.also)));
+        return sl.includes('3.5');
+    });
     const hasM2        = Object.keys(product.m2Slots || {}).length > 0;
 
     const compatSSDFF = new Set();
@@ -194,18 +210,29 @@ function createConfigSections(product, nodeSpec) {
     // Helper: get def and filter options
     const def = key => configSectionDefs.find(d => d.key === key);
 
-    // Helper: resolve compatible commodity Sub.Groups from SpecMapping
-    // Falls back to all options if no mapping entry found
+    // Helper: resolve compatible commodity values from SpecMapping for cpu/dimm/gpu.
+    // specKey may be composite ("xeon-5*2|xeon-4*2") – each token is checked.
+    // Returns array of matching values, or null if no mapping found (→ show all).
     function resolveSubGroups(commodity_type, specKey) {
-        const typeMap = specMapping[commodity_type] || {};
-        // specKey may be composite ("xeon-5*2|xeon-4*2") – check each token
+        const rules = specMapping[commodity_type] || [];
         const tokens = specKey.replace(/\*\d+/g, '').split('|').map(s => s.trim().toLowerCase());
         const groups = new Set();
         tokens.forEach(tok => {
-            const found = Object.keys(typeMap).find(k => tok.includes(k));
-            if (found) typeMap[found].forEach(sg => groups.add(sg));
+            rules.forEach(r => {
+                // For cpu/dimm/gpu, also is unused; spec is an exact product key token
+                if (tok.includes(r.spec)) groups.add(r.value);
+            });
         });
-        return groups.size > 0 ? [...groups] : null; // null = no mapping → show all
+        return groups.size > 0 ? [...groups] : null;
+    }
+
+    // Helper: check if a slot type matches any nic OCP pattern from SpecMapping
+    function slotNICTypes(slotType) {
+        const s = slotType.toLowerCase();
+        const rules = specMapping['nic'] || [];
+        const types = new Set();
+        rules.forEach(r => { if (s.includes(r.spec)) types.add(r.value.toLowerCase()); });
+        return types;
     }
 
     // --- CPU ---
@@ -264,7 +291,13 @@ function createConfigSections(product, nodeSpec) {
     const nicDef = def('nic');
     if (nicDef) {
         const allSchemeSlots = (nodeSpec.pcieSlotSchemes || []).flatMap(s => s.slots);
-        const hasOCP = [...allSchemeSlots, ...(product.ocpSlots || [])].some(s => s.startsWith('OCP'));
+        const allNICSlots = [...allSchemeSlots, ...(product.ocpSlots || [])];
+        const nicRules = specMapping['nic'] || [];
+        const hasOCP = allNICSlots.some(s => {
+            const sl = s.toLowerCase();
+            if (nicRules.length) return nicRules.some(r => sl.includes(r.spec) && r.value.toLowerCase().startsWith('ocp'));
+            return s.startsWith('OCP');
+        });
         const opts = nicDef.options.filter(o => o.meta.isOCP ? hasOCP : true);
         if (opts.length) sections.push(new ConfigSection({ key: 'nic', name: 'NIC Card', type: 'multi', dependsOn: null, options: opts }));
     }

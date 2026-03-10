@@ -640,21 +640,32 @@ function parseConsolidatedCSV(rows) {
 
 // -----------------------------------------------
 // SpecMapping CSV parser
-// Columns: commodity_type, product_spec, commodity_subgroup
-// Returns Map: commodity_type → { product_spec → [subgroup, ...] }
+// Columns: commodity_type, product_spec, commodity_value, also_contains (optional)
+//
+// Each row defines one rule:
+//   { type, spec, value, also }
+//
+// Lookup semantics:
+//   - For cpu/dimm/gpu: spec is a product key token (e.g. "xeon-6").
+//     A rule matches when the product's spec string contains the token.
+//   - For ssd/hdd/nic: spec is a substring pattern matched against the
+//     slot type string (case-insensitive). also_contains is an optional
+//     second pattern that must also appear (compound condition).
+//
+// Returns: { commodity_type: [ {spec, value, also}, ... ] }
 // -----------------------------------------------
 function parseSpecMappingCSV(rows) {
-    const map = {};
+    const out = {};
     rows.slice(1).forEach(r => {
-        const type  = (r[0] || '').trim().toLowerCase();
-        const spec  = (r[1] || '').trim().toLowerCase();
-        const subGp = (r[2] || '').trim();
-        if (!type || !spec || !subGp) return;
-        if (!map[type])       map[type] = {};
-        if (!map[type][spec]) map[type][spec] = [];
-        map[type][spec].push(subGp);
+        const type = (r[0] || '').trim().toLowerCase();
+        const spec = (r[1] || '').trim().toLowerCase();
+        const val  = (r[2] || '').trim();
+        const also = (r[3] || '').trim().toLowerCase();
+        if (!type || !spec || !val) return;
+        if (!out[type]) out[type] = [];
+        out[type].push({ spec, value: val, also });
     });
-    return map;
+    return out;
 }
 
 // -----------------------------------------------
