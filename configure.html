@@ -197,6 +197,7 @@ function initConfigure() {
             activePcieSchemeIdx: -1,
             activeFrontDiskSchemeIdx: -1,
             activeRearDiskSchemeIdx: -1,
+            diskPairings: {},
         };
     });
 
@@ -455,6 +456,72 @@ function renderSelectedItemsHTML(nc) {
     return html;
 }
 
+function getPairingOptions(nc, sectionKey) {
+    const opts = [];
+    if (sectionKey === 'transceiver') {
+        const nicSec = nc.sections.find(s => s.key === 'nic');
+        if (nicSec) {
+            Object.entries(nicSec.selections).forEach(([optId]) => {
+                const o = nicSec.options.find(x => x.id === optId);
+                if (o) opts.push({ value: 'nic:' + optId, label: o.name });
+            });
+        }
+        return opts;
+    }
+    // raid, hba: pair with non-M.2 disk; m2raid: pair with M.2 SSD
+    const hddSec = nc.sections.find(s => s.key === 'hdd');
+    const ssdSec = nc.sections.find(s => s.key === 'ssd');
+    if (sectionKey !== 'm2raid' && hddSec) {
+        Object.entries(hddSec.selections).forEach(([optId]) => {
+            const o = hddSec.options.find(x => x.id === optId);
+            if (o) opts.push({ value: 'hdd:' + optId, label: '[HDD] ' + o.name });
+        });
+    }
+    if (ssdSec) {
+        Object.entries(ssdSec.selections).forEach(([optId]) => {
+            const o = ssdSec.options.find(x => x.id === optId);
+            if (!o) return;
+            if (sectionKey === 'm2raid' && !o.meta.isM2) return;
+            if (sectionKey !== 'm2raid' && o.meta.isM2) return;
+            opts.push({ value: 'ssd:' + optId, label: '[SSD] ' + o.name });
+        });
+    }
+    return opts;
+}
+
+function setDiskPairing(uid, optId, value) {
+    const parsed = parseSectionUID(uid);
+    if (!parsed) return;
+    const nc = activeNodeConfigs[parsed.nodeIdx];
+    if (!nc) return;
+    if (!nc.diskPairings) nc.diskPairings = {};
+    const key = uid + '|' + optId;
+    if (value) {
+        const colonIdx = value.indexOf(':');
+        nc.diskPairings[key] = {
+            diskSectionKey: value.substring(0, colonIdx),
+            diskOptId: value.substring(colonIdx + 1)
+        };
+    } else {
+        delete nc.diskPairings[key];
+    }
+}
+
+function cascadeRemovePaired(nc, diskSectionKey, diskOptId) {
+    if (!nc || !nc.diskPairings) return;
+    const toRemove = Object.entries(nc.diskPairings)
+        .filter(([, p]) => p.diskSectionKey === diskSectionKey && p.diskOptId === diskOptId)
+        .map(([k]) => k);
+    toRemove.forEach(key => {
+        const sepIdx = key.indexOf('|');
+        const itemUid = key.substring(0, sepIdx);
+        const itemOptId = key.substring(sepIdx + 1);
+        const sec = findSectionByUID(itemUid);
+        if (sec) delete sec.selections[itemOptId];
+        delete nc.diskPairings[key];
+    });
+}
+
 function renderItemCard({ section, opt, qty, uid }) {
     const isMulti = section.type !== 'single' || section.showQtyCtrl;
     const safeId = (uid + '_' + opt.id).replace(/[^a-z0-9]/gi, '_');
@@ -464,26 +531,50 @@ function renderItemCard({ section, opt, qty, uid }) {
     const sectionColor = typeColors[section.key] || '#f1f5f9';
     const optIdEsc = opt.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+    // Pairing dropdown for RAID/HBA/m2raid/Transceiver
+    let pairingHTML = '';
+    const parsed = parseSectionUID(uid);
+    const nc = parsed ? activeNodeConfigs[parsed.nodeIdx] : null;
+    if (nc && ['raid', 'hba', 'm2raid', 'transceiver'].includes(section.key)) {
+        const pairingOpts = getPairingOptions(nc, section.key);
+        if (pairingOpts.length > 0) {
+            const pairingKey = uid + '|' + opt.id;
+            const cur = nc.diskPairings && nc.diskPairings[pairingKey];
+            const curVal = cur ? (cur.diskSectionKey + ':' + cur.diskOptId) : '';
+            const pairingLabel = section.key === 'transceiver' ? '搭配 NIC:' : '搭配磁碟:';
+            pairingHTML = `<div class="sic-pairing">
+                <label>${pairingLabel}</label>
+                <select onchange="setDiskPairing('${uid}','${optIdEsc}',this.value)">
+                    <option value="">-- 請選擇 --</option>
+                    ${pairingOpts.map(p => `<option value="${p.value}"${curVal === p.value ? ' selected' : ''}>${p.label}</option>`).join('')}
+                </select>
+            </div>`;
+        }
+    }
+
+    const qtyHTML = isMulti
+        ? `<div class="sic-qty-ctrl">
+                <button onclick="adjustSelectedQty('${uid}','${optIdEsc}',-1)">−</button>
+                <span id="siq-${safeId}">${qty}</span>
+                <button onclick="adjustSelectedQty('${uid}','${optIdEsc}',1)">+</button>
+           </div>`
+        : `<span class="sic-qty-label">×${qty}</span>`;
+
     return `<div class="selected-item-card" id="scard-${safeId}">
-        <div class="sic-top">
-            <span class="sic-section-badge" style="background:${sectionColor}">${section.name}</span>
-            <button class="sic-remove-btn" onclick="removeSelectedItem('${uid}', '${optIdEsc}')" title="移除">
+        <span class="sic-section-badge" style="background:${sectionColor}">${section.name}</span>
+        <div class="sic-info">
+            <div class="sic-name" title="${opt.name}">${opt.name}</div>
+            <div class="sic-mpn">MPN: ${opt.id}</div>
+        </div>
+        ${buildSpecTags(section.key, opt)}
+        ${pairingHTML}
+        <div class="sic-controls">
+            ${qtyHTML}
+            <button class="sic-remove-btn" onclick="removeSelectedItem('${uid}','${optIdEsc}')" title="移除">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
             </button>
-        </div>
-        <div class="sic-name" title="${opt.name}">${opt.name}</div>
-        <div class="sic-mpn">MPN: ${opt.id}</div>
-        ${buildSpecTags(section.key, opt)}
-        <div class="sic-bottom">
-            ${isMulti
-                ? `<div class="sic-qty-ctrl">
-                    <button onclick="adjustSelectedQty('${uid}', '${optIdEsc}', -1)">−</button>
-                    <span id="siq-${safeId}">${qty}</span>
-                    <button onclick="adjustSelectedQty('${uid}', '${optIdEsc}', 1)">+</button>
-                   </div>`
-                : `<span class="sic-qty-label">Qty: ${qty}</span>`}
         </div>
     </div>`;
 }
@@ -795,7 +886,18 @@ function removeSelectedItem(uid, optId) {
     if (!section) return;
     delete section.selections[optId];
     const parsed = parseSectionUID(uid);
-    if (parsed) refreshNodeUI(parsed.nodeIdx);
+    if (parsed) {
+        const nc = activeNodeConfigs[parsed.nodeIdx];
+        if (nc) {
+            // Remove pairing entry for this item (if it was a RAID/HBA/etc.)
+            if (nc.diskPairings) delete nc.diskPairings[uid + '|' + optId];
+            // Cascade-remove items paired to this disk/NIC
+            if (['hdd', 'ssd', 'nic'].includes(section.key)) {
+                cascadeRemovePaired(nc, section.key, optId);
+            }
+        }
+        refreshNodeUI(parsed.nodeIdx);
+    }
 }
 
 function adjustSelectedQty(uid, optId, delta) {

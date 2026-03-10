@@ -474,7 +474,7 @@ body {
 .page-scroll-area {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 14px 20px;
     background: var(--light-bg);
 }
 
@@ -523,23 +523,23 @@ body {
 .config-summary-card {
     background: linear-gradient(135deg, var(--pale-green) 0%, var(--lighter-bg) 100%);
     color: var(--dark-green);
-    padding: 20px 24px;
+    padding: 12px 16px;
     border-radius: 8px;
     margin-bottom: 16px;
     border-left: 4px solid var(--light-green);
     box-shadow: 0 4px 12px rgba(92, 171, 50, 0.08);
 }
 
-.config-summary-name { font-size: 24px; font-weight: 800; margin-bottom: 8px; color: var(--dark-green); }
+.config-summary-name { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: var(--dark-green); }
 
 .config-summary-badges {
     display: flex;
-    gap: 6px;
-    margin-bottom: 8px;
+    gap: 5px;
+    margin-bottom: 5px;
     flex-wrap: wrap;
 }
 
-.config-summary-detail { font-size: 14px; color: var(--accent-green); }
+.config-summary-detail { font-size: 12px; color: var(--accent-green); }
 
 /* Config Section (accordion) */
 .config-section {
@@ -1259,15 +1259,15 @@ body {
 
 /* Node config area wraps tabs + selected items */
 .node-config-area {
-    margin-bottom: 16px;
+    margin-bottom: 10px;
 }
 
 /* Section Tabs Bar */
 .section-tabs-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    padding: 12px 16px;
+    gap: 5px;
+    padding: 8px 10px;
     background: #fff;
     border: 1px solid var(--pale-green);
     border-radius: 10px 10px 0 0;
@@ -1346,8 +1346,8 @@ body {
     background: var(--lighter-bg);
     border: 1px solid var(--pale-green);
     border-radius: 0 0 10px 10px;
-    padding: 16px;
-    min-height: 80px;
+    padding: 8px 10px;
+    min-height: 36px;
 }
 
 .selected-empty {
@@ -1355,79 +1355,133 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px 16px;
+    padding: 14px 16px;
     color: #94a3b8;
     font-size: 13px;
-    gap: 8px;
+    gap: 6px;
 }
 
 .selected-items-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
 }
 
 /* Related group: thick rounded border box */
 .related-group {
-    border: 2.5px solid var(--light-green);
-    border-radius: 12px;
-    padding: 12px;
+    border: 2px solid var(--light-green);
+    border-radius: 10px;
+    padding: 8px 8px 8px 8px;
     background: #fff;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
     position: relative;
+    margin-top: 6px;
 }
 
 .related-group-label {
     position: absolute;
-    top: -10px;
-    left: 14px;
+    top: -9px;
+    left: 12px;
     background: var(--light-green);
     color: #fff;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 2px 10px;
-    border-radius: 8px;
+    padding: 1px 8px;
+    border-radius: 6px;
 }
 
-/* Individual selected item card */
+/* Individual selected item card — compact horizontal row */
 .selected-item-card {
     background: #fff;
     border: 1px solid var(--pale-green);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 6px;
+    padding: 5px 8px;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-
-.sic-top {
-    display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    min-width: 0;
 }
 
 .sic-section-badge {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: 8px;
+    padding: 2px 6px;
+    border-radius: 6px;
     color: var(--accent-green);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Middle: name + mpn stacked */
+.sic-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.sic-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dark-green);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sic-mpn {
+    font-size: 10px;
+    color: #94a3b8;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+/* Pairing dropdown */
+.sic-pairing {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+.sic-pairing label {
+    font-size: 10px;
+    color: #64748b;
+    white-space: nowrap;
+}
+.sic-pairing select {
+    font-size: 10px;
+    padding: 2px 4px;
+    border: 1px solid var(--pale-green);
+    border-radius: 4px;
+    color: var(--dark-green);
+    background: #fff;
+    max-width: 150px;
+    cursor: pointer;
+}
+
+/* Right: qty controls + remove */
+.sic-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .sic-remove-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     background: #fff;
@@ -1439,27 +1493,6 @@ body {
 }
 .sic-remove-btn:hover { background: #fef2f2; border-color: #fca5a5; color: #ef4444; }
 
-.sic-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--dark-green);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sic-mpn {
-    font-size: 11px;
-    color: #94a3b8;
-    font-family: monospace;
-}
-
-.sic-bottom {
-    display: flex;
-    align-items: center;
-    margin-top: 2px;
-}
-
 .sic-qty-label {
     font-size: 11px;
     color: #64748b;
@@ -1468,16 +1501,16 @@ body {
 .sic-qty-ctrl {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 .sic-qty-ctrl button {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border: 1px solid var(--pale-green);
     border-radius: 4px;
     background: #fff;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--dark-green);
     display: flex;
     align-items: center;
@@ -1486,10 +1519,10 @@ body {
 }
 .sic-qty-ctrl button:hover { background: var(--pale-green); }
 .sic-qty-ctrl span {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--dark-green);
-    min-width: 24px;
+    min-width: 20px;
     text-align: center;
 }
 
@@ -1664,7 +1697,9 @@ body {
 .mopt-mpn { font-size: 10px; color: #94a3b8; font-family: monospace; margin-top: 2px; }
 
 /* ---- Spec chips (modal options + selected item cards) ---- */
-.spec-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px; }
+.spec-tags { display: flex; flex-wrap: nowrap; gap: 3px; flex-shrink: 0; }
+.modal-options-list .spec-tags,
+.mopt-text .spec-tags { flex-wrap: wrap; margin: 3px 0 2px; }
 .spec-tag {
     display: inline-flex; align-items: center;
     padding: 1px 7px; border-radius: 10px;
