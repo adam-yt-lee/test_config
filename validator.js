@@ -88,64 +88,85 @@ function buildCardRequests(product, nodeSpec, sections) {
 
 // -----------------------------------------------
 // Main slot validator
+// activePcieSchemeIdx: -1 = no user selection → try all schemes, use best fit
 // -----------------------------------------------
-function validatePcieSlots(product, nodeSpec, sections) {
-    // Build available slots (PCIe + OCP), adjusting for 2U NVMe-24 rule
-    let pcieSlots = [...(nodeSpec ? nodeSpec.pcieSlots : (product.nodes && product.nodes[0] ? product.nodes[0].pcieSlots : []))];
+function validatePcieSlots(product, nodeSpec, sections, activePcieSchemeIdx = -1) {
     const ocpSlots = [...(product.ocpSlots || [])];
-
-    // Rule: 2U NVMe 24 drives → G4-FHFL-x16 loses 2 slots (NVMe backplane)
-    if (product.formFactor === '2ru') {
-        const nvme24Selected = _countNvme(sections);
-        if (nvme24Selected >= 24) {
-            let removed = 0;
-            pcieSlots = pcieSlots.filter(s => {
-                if (s === 'G4-FHFL-x16' && removed < 2) { removed++; return false; }
-                return true;
-            });
-        }
-    }
-
-    const allSlotTypes = [...pcieSlots, ...ocpSlots];
-    const slots = allSlotTypes.map((type, idx) => ({ index: idx, type, assigned: null }));
 
     const cardRequests = buildCardRequests(product, nodeSpec, sections);
     const sortedCards  = [...cardRequests].sort((a, b) =>
         (INTERFACE_PRIORITY[a.iface] ?? 99) - (INTERFACE_PRIORITY[b.iface] ?? 99)
     );
 
-    const assignments = [];
-    const unassigned  = [];
+    // Rule: 2U NVMe 24 drives → G4-FHFL-x16 loses 2 slots (NVMe backplane)
+    function applyNvme24Rule(slots) {
+        if (product.formFactor !== '2ru' || _countNvme(sections) < 24) return slots;
+        let removed = 0;
+        return slots.filter(s => {
+            if (s === 'G4-FHFL-x16' && removed < 2) { removed++; return false; }
+            return true;
+        });
+    }
 
-    for (const card of sortedCards) {
-        const compatSlots = slots
-            .filter(s => !s.assigned && SLOT_ACCEPTS[s.type] && SLOT_ACCEPTS[s.type].includes(card.iface))
-            .sort((a, b) => (SLOT_SIZE[a.type] ?? 99) - (SLOT_SIZE[b.type] ?? 99));
-        if (compatSlots.length > 0) {
-            const slot = compatSlots[0];
-            slot.assigned = card;
-            assignments.push({ slot, card });
-        } else {
-            unassigned.push(card);
+    function runAssignment(rawSlots) {
+        const allSlotTypes = [...applyNvme24Rule([...rawSlots]), ...ocpSlots];
+        const slots = allSlotTypes.map((type, idx) => ({ index: idx, type, assigned: null }));
+        const assignments = [];
+        const unassigned  = [];
+        for (const card of sortedCards) {
+            const compatSlots = slots
+                .filter(s => !s.assigned && SLOT_ACCEPTS[s.type] && SLOT_ACCEPTS[s.type].includes(card.iface))
+                .sort((a, b) => (SLOT_SIZE[a.type] ?? 99) - (SLOT_SIZE[b.type] ?? 99));
+            if (compatSlots.length > 0) {
+                const slot = compatSlots[0];
+                slot.assigned = card;
+                assignments.push({ slot, card });
+            } else {
+                unassigned.push(card);
+            }
         }
+        return { assignments, unassigned, slotStatus: slots,
+                 totalCards: cardRequests.length, totalSlots: slots.length };
     }
 
+    // Determine which slots to use
+    const schemes = nodeSpec ? nodeSpec.pcieSlotSchemes : null;
+    let result;
+    if (schemes && schemes.length > 1 && activePcieSchemeIdx < 0) {
+        // No user selection: try every scheme, keep the one with fewest conflicts
+        let best = null;
+        for (const scheme of schemes) {
+            const r = runAssignment(scheme.slots);
+            if (!best || r.unassigned.length < best.unassigned.length) {
+                best = r;
+                if (best.unassigned.length === 0) break; // can't do better
+            }
+        }
+        result = best;
+    } else {
+        // Specific scheme selected by user, or single scheme
+        let pcieSlots;
+        if (schemes && activePcieSchemeIdx >= 0 && schemes[activePcieSchemeIdx]) {
+            pcieSlots = schemes[activePcieSchemeIdx].slots;
+        } else {
+            pcieSlots = nodeSpec ? nodeSpec.pcieSlots
+                       : (product.nodes && product.nodes[0] ? product.nodes[0].pcieSlots : []);
+        }
+        result = runAssignment(pcieSlots);
+    }
+
+    // Append slot-count warning and non-PCIe SAS warning
     const warnings = [];
-    if (unassigned.length > 0) {
-        warnings.push(`Not enough compatible PCIe slots for: ${unassigned.map(c => c.name).join(', ')}`);
+    if (result.unassigned.length > 0) {
+        warnings.push(`Not enough compatible PCIe slots for: ${result.unassigned.map(c => c.name).join(', ')}`);
     }
-
-    // SAS drives must have RAID or HBA
     const sasDrives = _getSASCount(sections);
     const hasRaidOrHBA = sections.some(s => (s.key === 'raid' || s.key === 'hba') && Object.keys(s.selections).length > 0);
     if (sasDrives > 0 && !hasRaidOrHBA) {
         warnings.push(`SAS drives require a RAID card or HBA card to be selected.`);
     }
 
-    return {
-        assignments, unassigned, slotStatus: slots, warnings,
-        totalCards: cardRequests.length, totalSlots: slots.length,
-    };
+    return { ...result, warnings };
 }
 
 function _countNvme(sections) {

@@ -194,9 +194,9 @@ function initConfigure() {
             nodeSpec: ns,
             qty: nodeSpec.defaultQty,
             sections: createConfigSections(selectedProduct, ns),
-            activePcieSchemeIdx: 0,
-            activeFrontDiskSchemeIdx: 0,
-            activeRearDiskSchemeIdx: 0,
+            activePcieSchemeIdx: -1,
+            activeFrontDiskSchemeIdx: -1,
+            activeRearDiskSchemeIdx: -1,
         };
     });
 
@@ -843,7 +843,7 @@ function renderPcieSlotPanel() {
     let totalSlots  = 0;
 
     activeNodeConfigs.forEach(nc => {
-        const result = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections);
+        const result = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections, nc.activePcieSchemeIdx);
         allWarnings = allWarnings.concat(result.warnings);
         allSlots = allSlots.concat(result.slotStatus.map(s => ({ ...s, nodeLabel: nc.nodeId ? `Node ${nc.nodeId}` : '' })));
         totalCards += result.totalCards;
@@ -929,7 +929,7 @@ function submitConfig() {
     }
     let pcieOk = true;
     activeNodeConfigs.forEach(nc => {
-        const r = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections);
+        const r = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections, nc.activePcieSchemeIdx);
         if (r.unassigned.length > 0) {
             alert('PCIe slot conflict: not enough slots for: ' + r.unassigned.map(c => c.name).join(', '));
             pcieOk = false;

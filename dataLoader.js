@@ -60,8 +60,9 @@ function normalizeFormFactor(ff) {
     if (f.includes('e3.s')) return 'E3.S';
     // 15mm thickness: handles '15mm', '2.5"/15', 'U.3/15', etc.
     if (f.includes('15mm') || /[\/\-]15$/.test(f) || /[\/\-]15\b/.test(f)) return 'U.2-15mm';
-    // 7mm / 9.5mm / U.2 / U.3 variants
-    if (f.includes('9.5mm') || f.includes('u.2') || f.includes('u.3') || f.includes('7mm')) return 'U.2-7mm';
+    // 7mm / 9.5mm / U.2 / U.3 variants — also catches "2.5"/7" and "2.5"/9.5" catalog notation
+    if (f.includes('9.5mm') || f.includes('u.2') || f.includes('u.3') || f.includes('7mm') ||
+        /[\/]7$/.test(f) || /[\/]9\.?5$/.test(f)) return 'U.2-7mm';
     if (f.includes('3.5')) return 'HDD-3.5';
     if (f.includes('2.5')) return 'SSD-2.5';
     return ff.trim();
@@ -189,13 +190,14 @@ function buildProduct(row) {
     let nodes;
     if (isMultiNode) {
         const nodeIds = [...new Set(pcieNodeSpecs.map(n => n.nodeId))];
+        const defaultQtyPerType = Math.floor(nodeCount / nodeIds.length) || 1;
         nodes = nodeIds.map(nodeId => {
             const pcieSchemes  = (pcieNodeSpecs.find(n => n.nodeId === nodeId) || { data: [{ label: '', slots: [] }] }).data;
             const frontSchemes = (frontNodeSpecs.find(n => n.nodeId === nodeId) || { data: [{ label: '', map: {} }] }).data;
             const rearSchemes  = (rearNodeSpecs.find(n  => n.nodeId === nodeId) || { data: [{ label: '', map: {} }] }).data;
             return {
                 nodeId,
-                defaultQty: nodeCount,
+                defaultQty: defaultQtyPerType,
                 pcieSlotSchemes: pcieSchemes,
                 pcieSlots: pcieSchemes[0] ? pcieSchemes[0].slots : [],
                 frontDiskSchemes: frontSchemes,
@@ -637,6 +639,36 @@ function parseConsolidatedCSV(rows) {
 }
 
 // -----------------------------------------------
+// SpecMapping CSV parser
+// Columns: commodity_type, product_spec, commodity_value, also_contains (optional)
+//
+// Each row defines one rule:
+//   { type, spec, value, also }
+//
+// Lookup semantics:
+//   - For cpu/dimm/gpu: spec is a product key token (e.g. "xeon-6").
+//     A rule matches when the product's spec string contains the token.
+//   - For ssd/hdd/nic: spec is a substring pattern matched against the
+//     slot type string (case-insensitive). also_contains is an optional
+//     second pattern that must also appear (compound condition).
+//
+// Returns: { commodity_type: [ {spec, value, also}, ... ] }
+// -----------------------------------------------
+function parseSpecMappingCSV(rows) {
+    const out = {};
+    rows.slice(1).forEach(r => {
+        const type = (r[0] || '').trim().toLowerCase();
+        const spec = (r[1] || '').trim().toLowerCase();
+        const val  = (r[2] || '').trim();
+        const also = (r[3] || '').trim().toLowerCase();
+        if (!type || !spec || !val) return;
+        if (!out[type]) out[type] = [];
+        out[type].push({ spec, value: val, also });
+    });
+    return out;
+}
+
+// -----------------------------------------------
 // Section def builder
 // -----------------------------------------------
 function buildSectionDefs(c) {
@@ -674,15 +706,17 @@ async function cachedFetch(url) {
 // -----------------------------------------------
 async function loadData(callback) {
     try {
-        const [prodText, filtText, commText] = await Promise.all([
+        const [prodText, filtText, commText, mapText] = await Promise.all([
             cachedFetch('Products.csv'),
             cachedFetch('Filters.csv'),
             cachedFetch('Consolidated_Commodities_20260303.csv'),
+            cachedFetch('SpecMapping.csv'),
         ]);
 
         products          = csvRowsToObjects(parseCSV(prodText)).map(buildProduct).filter(p => p.id);
         filterCategories  = parseFiltersCSV(parseCSV(filtText));
         configSectionDefs = buildSectionDefs(parseConsolidatedCSV(parseCSV(commText)));
+        specMapping       = parseSpecMappingCSV(parseCSV(mapText));
 
         if (callback) callback();
     } catch (err) {

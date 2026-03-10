@@ -9,34 +9,36 @@ let configSectionDefs = [];
 let activeNodeConfigs = [];   // [{ nodeId, nodeSpec, qty, sections }]
 let editingCartIndex = -1;
 let cartItems = JSON.parse(localStorage.getItem('serverCartItems') || '[]');
-
-// ============================================
-// CPU series → Sub.Group mapping
-// Sub.Group values must match Consolidated_Commodities_20260303.csv
-// ============================================
-const CPU_SERIES_GROUPS = {
-    'xeon-6':    ['Granite Rapids AP', 'Granite Rapids SP', 'Sierra Forest SP'],
-    'xeon-5':    ['Emerald Rapids'],
-    'xeon-4':    ['Emerald Rapids'],
-    'xeon-3':    ['Emerald Rapids'],
-    'epyc-9005': ['Turin'],
-    'epyc-9004': ['Genoa'],
-    'epyc-7003': ['Milan'],
-    'epyc-7002': ['Rome'],
-};
+// Populated by dataLoader from SpecMapping.csv:
+//   { commodity_type: { product_spec: [subgroup, ...] } }
+let specMapping = {};
 
 // ============================================
 // Disk slot → compatible SSD form factors
+// Driven by SpecMapping.csv (commodity_type = "ssd").
+// Falls back to built-in rules when the mapping is not yet loaded.
 // ============================================
 function getSSDFormFactorsForSlot(slotType) {
     const s = slotType.toLowerCase();
+    const rules = specMapping['ssd'];
+    if (rules && rules.length) {
+        const ffs = new Set();
+        rules.forEach(r => {
+            if (s.includes(r.spec) && (!r.also || s.includes(r.also))) ffs.add(r.value);
+        });
+        return [...ffs];
+    }
+    // Fallback (pre-load or missing CSV)
     if (s.includes('m.2_22110')) return ['M.2-22110', 'M.2-2280'];
     if (s.includes('m.2_2280')) return ['M.2-2280'];
     if (s.includes('e1.s')) return ['E1.S'];
     if (s.includes('e3.s')) return ['E3.S'];
     if (s.includes('15mm')) return ['U.2-15mm'];
-    if ((s.includes('9.5mm') || s.includes('7mm')) && s.includes('nvme')) return ['U.2-7mm'];
-    if (s.includes('7mm') && (s.includes('sata') || s.includes('sas'))) return ['U.2-7mm', 'SSD-2.5'];
+    if (s.includes('9.5mm') || s.includes('7mm')) {
+        const ffs = ['U.2-7mm'];
+        if (s.includes('sata') || s.includes('sas')) ffs.push('SSD-2.5');
+        return ffs;
+    }
     return [];
 }
 
@@ -187,8 +189,14 @@ function createConfigSections(product, nodeSpec) {
         ...Object.keys(nodeSpec.frontDiskSlots || {}),
         ...Object.keys(nodeSpec.rearDiskSlots  || {}),
     ];
-    const hasDisks     = allDiskSlots.length > 0;
-    const has35Slot    = allDiskSlots.some(s => s.includes('3.5'));
+    const hasDisks  = allDiskSlots.length > 0;
+    // Use SpecMapping "hdd" rules to identify HDD-compatible slots (fallback: "3.5" substring)
+    const hddRules  = specMapping['hdd'] || [];
+    const has35Slot = allDiskSlots.some(s => {
+        const sl = s.toLowerCase();
+        if (hddRules.length) return hddRules.some(r => sl.includes(r.spec) && (!r.also || sl.includes(r.also)));
+        return sl.includes('3.5');
+    });
     const hasM2        = Object.keys(product.m2Slots || {}).length > 0;
 
     const compatSSDFF = new Set();
@@ -202,11 +210,35 @@ function createConfigSections(product, nodeSpec) {
     // Helper: get def and filter options
     const def = key => configSectionDefs.find(d => d.key === key);
 
+    // Helper: resolve compatible commodity values from SpecMapping for cpu/dimm/gpu.
+    // specKey may be composite ("xeon-5*2|xeon-4*2") – each token is checked.
+    // Returns array of matching values, or null if no mapping found (→ show all).
+    function resolveSubGroups(commodity_type, specKey) {
+        const rules = specMapping[commodity_type] || [];
+        const tokens = specKey.replace(/\*\d+/g, '').split('|').map(s => s.trim().toLowerCase());
+        const groups = new Set();
+        tokens.forEach(tok => {
+            rules.forEach(r => {
+                // For cpu/dimm/gpu, also is unused; spec is an exact product key token
+                if (tok.includes(r.spec)) groups.add(r.value);
+            });
+        });
+        return groups.size > 0 ? [...groups] : null;
+    }
+
+    // Helper: check if a slot type matches any nic OCP pattern from SpecMapping
+    function slotNICTypes(slotType) {
+        const s = slotType.toLowerCase();
+        const rules = specMapping['nic'] || [];
+        const types = new Set();
+        rules.forEach(r => { if (s.includes(r.spec)) types.add(r.value.toLowerCase()); });
+        return types;
+    }
+
     // --- CPU ---
     const cpuDef = def('cpu');
     if (cpuDef) {
-        const seriesKey = Object.keys(CPU_SERIES_GROUPS).find(k => product.cpuSeries.includes(k));
-        const groups = seriesKey ? CPU_SERIES_GROUPS[seriesKey] : null;
+        const groups = resolveSubGroups('cpu', product.cpuSeries);
         const opts = groups ? cpuDef.options.filter(o => groups.includes(o.subGroup)) : cpuDef.options;
         if (opts.length) sections.push(new ConfigSection({ key: 'cpu', name: `CPU ×${product.cpuSockets}`, type: 'single', dependsOn: null, options: opts, defaultQty: product.cpuSockets, showQtyCtrl: true }));
     }
@@ -214,7 +246,9 @@ function createConfigSections(product, nodeSpec) {
     // --- DIMM ---
     const dimmDef = def('dimm');
     if (dimmDef && product.dimmSlots > 0) {
-        const opts = dimmDef.options.filter(o => o.subGroup === product.dimmType);
+        const groups = resolveSubGroups('dimm', product.dimmType);
+        const opts = groups ? dimmDef.options.filter(o => groups.includes(o.subGroup))
+                           : dimmDef.options.filter(o => o.subGroup === product.dimmType);
         const optsWithInfo = opts.map(o => ({ ...o, desc: o.desc + ` | ${product.dimmSlots} 槽` }));
         if (optsWithInfo.length) sections.push(new ConfigSection({ key: 'dimm', name: `DIMM ×${product.dimmSlots}`, type: 'single', dependsOn: null, options: optsWithInfo, defaultQty: product.dimmSlots, showQtyCtrl: true }));
     }
@@ -222,8 +256,17 @@ function createConfigSections(product, nodeSpec) {
     // --- GPU ---
     if (product.gpus > 0) {
         const gpuDef = def('gpu');
-        if (gpuDef && gpuDef.options.length) {
-            sections.push(new ConfigSection({ key: 'gpu', name: `GPU / Accelerator (${product.gpus} units)`, type: 'single', dependsOn: null, options: gpuDef.options }));
+        if (gpuDef) {
+            // Collect compatible sub-groups for all gpuType tokens
+            const allGpuGroups = new Set();
+            product.gpuType.filter(t => t && t !== 'none').forEach(gpuToken => {
+                const groups = resolveSubGroups('gpu', gpuToken);
+                if (groups) groups.forEach(g => allGpuGroups.add(g));
+            });
+            const opts = allGpuGroups.size > 0
+                ? gpuDef.options.filter(o => allGpuGroups.has(o.subGroup))
+                : gpuDef.options;
+            if (opts.length) sections.push(new ConfigSection({ key: 'gpu', name: `GPU / Accelerator (${product.gpus} units)`, type: 'single', dependsOn: null, options: opts }));
         }
     }
 
@@ -247,7 +290,14 @@ function createConfigSections(product, nodeSpec) {
     // --- NIC ---
     const nicDef = def('nic');
     if (nicDef) {
-        const hasOCP = [...(nodeSpec.pcieSlots || []), ...(product.ocpSlots || [])].some(s => s.startsWith('OCP'));
+        const allSchemeSlots = (nodeSpec.pcieSlotSchemes || []).flatMap(s => s.slots);
+        const allNICSlots = [...allSchemeSlots, ...(product.ocpSlots || [])];
+        const nicRules = specMapping['nic'] || [];
+        const hasOCP = allNICSlots.some(s => {
+            const sl = s.toLowerCase();
+            if (nicRules.length) return nicRules.some(r => sl.includes(r.spec) && r.value.toLowerCase().startsWith('ocp'));
+            return s.startsWith('OCP');
+        });
         const opts = nicDef.options.filter(o => o.meta.isOCP ? hasOCP : true);
         if (opts.length) sections.push(new ConfigSection({ key: 'nic', name: 'NIC Card', type: 'multi', dependsOn: null, options: opts }));
     }
