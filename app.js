@@ -9,21 +9,9 @@ let configSectionDefs = [];
 let activeNodeConfigs = [];   // [{ nodeId, nodeSpec, qty, sections }]
 let editingCartIndex = -1;
 let cartItems = JSON.parse(localStorage.getItem('serverCartItems') || '[]');
-
-// ============================================
-// CPU series → Sub.Group mapping
-// Sub.Group values must match Consolidated_Commodities_20260303.csv
-// ============================================
-const CPU_SERIES_GROUPS = {
-    'xeon-6':    ['Granite Rapids AP', 'Granite Rapids SP', 'Sierra Forest SP'],
-    'xeon-5':    ['Emerald Rapids'],
-    'xeon-4':    ['Emerald Rapids'],
-    'xeon-3':    ['Emerald Rapids'],
-    'epyc-9005': ['Turin'],
-    'epyc-9004': ['Genoa'],
-    'epyc-7003': ['Milan'],
-    'epyc-7002': ['Rome'],
-};
+// Populated by dataLoader from SpecMapping.csv:
+//   { commodity_type: { product_spec: [subgroup, ...] } }
+let specMapping = {};
 
 // ============================================
 // Disk slot → compatible SSD form factors
@@ -206,11 +194,24 @@ function createConfigSections(product, nodeSpec) {
     // Helper: get def and filter options
     const def = key => configSectionDefs.find(d => d.key === key);
 
+    // Helper: resolve compatible commodity Sub.Groups from SpecMapping
+    // Falls back to all options if no mapping entry found
+    function resolveSubGroups(commodity_type, specKey) {
+        const typeMap = specMapping[commodity_type] || {};
+        // specKey may be composite ("xeon-5*2|xeon-4*2") – check each token
+        const tokens = specKey.replace(/\*\d+/g, '').split('|').map(s => s.trim().toLowerCase());
+        const groups = new Set();
+        tokens.forEach(tok => {
+            const found = Object.keys(typeMap).find(k => tok.includes(k));
+            if (found) typeMap[found].forEach(sg => groups.add(sg));
+        });
+        return groups.size > 0 ? [...groups] : null; // null = no mapping → show all
+    }
+
     // --- CPU ---
     const cpuDef = def('cpu');
     if (cpuDef) {
-        const seriesKey = Object.keys(CPU_SERIES_GROUPS).find(k => product.cpuSeries.includes(k));
-        const groups = seriesKey ? CPU_SERIES_GROUPS[seriesKey] : null;
+        const groups = resolveSubGroups('cpu', product.cpuSeries);
         const opts = groups ? cpuDef.options.filter(o => groups.includes(o.subGroup)) : cpuDef.options;
         if (opts.length) sections.push(new ConfigSection({ key: 'cpu', name: `CPU ×${product.cpuSockets}`, type: 'single', dependsOn: null, options: opts, defaultQty: product.cpuSockets, showQtyCtrl: true }));
     }
@@ -218,7 +219,9 @@ function createConfigSections(product, nodeSpec) {
     // --- DIMM ---
     const dimmDef = def('dimm');
     if (dimmDef && product.dimmSlots > 0) {
-        const opts = dimmDef.options.filter(o => o.subGroup === product.dimmType);
+        const groups = resolveSubGroups('dimm', product.dimmType);
+        const opts = groups ? dimmDef.options.filter(o => groups.includes(o.subGroup))
+                           : dimmDef.options.filter(o => o.subGroup === product.dimmType);
         const optsWithInfo = opts.map(o => ({ ...o, desc: o.desc + ` | ${product.dimmSlots} 槽` }));
         if (optsWithInfo.length) sections.push(new ConfigSection({ key: 'dimm', name: `DIMM ×${product.dimmSlots}`, type: 'single', dependsOn: null, options: optsWithInfo, defaultQty: product.dimmSlots, showQtyCtrl: true }));
     }
@@ -226,8 +229,17 @@ function createConfigSections(product, nodeSpec) {
     // --- GPU ---
     if (product.gpus > 0) {
         const gpuDef = def('gpu');
-        if (gpuDef && gpuDef.options.length) {
-            sections.push(new ConfigSection({ key: 'gpu', name: `GPU / Accelerator (${product.gpus} units)`, type: 'single', dependsOn: null, options: gpuDef.options }));
+        if (gpuDef) {
+            // Collect compatible sub-groups for all gpuType tokens
+            const allGpuGroups = new Set();
+            product.gpuType.filter(t => t && t !== 'none').forEach(gpuToken => {
+                const groups = resolveSubGroups('gpu', gpuToken);
+                if (groups) groups.forEach(g => allGpuGroups.add(g));
+            });
+            const opts = allGpuGroups.size > 0
+                ? gpuDef.options.filter(o => allGpuGroups.has(o.subGroup))
+                : gpuDef.options;
+            if (opts.length) sections.push(new ConfigSection({ key: 'gpu', name: `GPU / Accelerator (${product.gpus} units)`, type: 'single', dependsOn: null, options: opts }));
         }
     }
 

@@ -1,0 +1,22 @@
+commodity_type,product_spec,commodity_subgroup
+cpu,xeon-6,Granite Rapids AP
+cpu,xeon-6,Granite Rapids SP
+cpu,xeon-6,Sierra Forest SP
+cpu,xeon-5,Emerald Rapids
+cpu,xeon-4,Emerald Rapids
+cpu,xeon-3,Emerald Rapids
+cpu,epyc-9005,Turin
+cpu,epyc-9004,Genoa
+cpu,epyc-7003,Milan
+cpu,epyc-7002,Rome
+dimm,DDR5,DDR5
+dimm,DDR4,DDR4
+dimm,DDR4E,DDR4E
+gpu,nvidia-h200-nvl,NVLink
+gpu,nvidia-rtx-6000,PCIe-LC
+gpu,nvidia-hgx-h100,HGX
+gpu,nvidia-b300,NVLink
+gpu,amd-mi350x,UBB-AIR
+gpu,amd-mi350x,UBB-DLC
+gpu,amd-mi300x,UBB-AIR
+gpu,amd-mi300x,UBB-DLC

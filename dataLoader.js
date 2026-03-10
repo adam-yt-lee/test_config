@@ -639,6 +639,25 @@ function parseConsolidatedCSV(rows) {
 }
 
 // -----------------------------------------------
+// SpecMapping CSV parser
+// Columns: commodity_type, product_spec, commodity_subgroup
+// Returns Map: commodity_type → { product_spec → [subgroup, ...] }
+// -----------------------------------------------
+function parseSpecMappingCSV(rows) {
+    const map = {};
+    rows.slice(1).forEach(r => {
+        const type  = (r[0] || '').trim().toLowerCase();
+        const spec  = (r[1] || '').trim().toLowerCase();
+        const subGp = (r[2] || '').trim();
+        if (!type || !spec || !subGp) return;
+        if (!map[type])       map[type] = {};
+        if (!map[type][spec]) map[type][spec] = [];
+        map[type][spec].push(subGp);
+    });
+    return map;
+}
+
+// -----------------------------------------------
 // Section def builder
 // -----------------------------------------------
 function buildSectionDefs(c) {
@@ -676,15 +695,17 @@ async function cachedFetch(url) {
 // -----------------------------------------------
 async function loadData(callback) {
     try {
-        const [prodText, filtText, commText] = await Promise.all([
+        const [prodText, filtText, commText, mapText] = await Promise.all([
             cachedFetch('Products.csv'),
             cachedFetch('Filters.csv'),
             cachedFetch('Consolidated_Commodities_20260303.csv'),
+            cachedFetch('SpecMapping.csv'),
         ]);
 
         products          = csvRowsToObjects(parseCSV(prodText)).map(buildProduct).filter(p => p.id);
         filterCategories  = parseFiltersCSV(parseCSV(filtText));
         configSectionDefs = buildSectionDefs(parseConsolidatedCSV(parseCSV(commText)));
+        specMapping       = parseSpecMappingCSV(parseCSV(mapText));
 
         if (callback) callback();
     } catch (err) {
