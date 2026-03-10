@@ -35,8 +35,12 @@ function getSSDFormFactorsForSlot(slotType) {
     if (s.includes('e1.s')) return ['E1.S'];
     if (s.includes('e3.s')) return ['E3.S'];
     if (s.includes('15mm')) return ['U.2-15mm'];
-    if ((s.includes('9.5mm') || s.includes('7mm')) && s.includes('nvme')) return ['U.2-7mm'];
-    if (s.includes('7mm') && (s.includes('sata') || s.includes('sas'))) return ['U.2-7mm', 'SSD-2.5'];
+    if (s.includes('9.5mm') || s.includes('7mm')) {
+        // Accept SATA/SAS form factors too when the bay supports those protocols
+        const ffs = ['U.2-7mm'];
+        if (s.includes('sata') || s.includes('sas')) ffs.push('SSD-2.5');
+        return ffs;
+    }
     return [];
 }
 
@@ -247,7 +251,8 @@ function createConfigSections(product, nodeSpec) {
     // --- NIC ---
     const nicDef = def('nic');
     if (nicDef) {
-        const hasOCP = [...(nodeSpec.pcieSlots || []), ...(product.ocpSlots || [])].some(s => s.startsWith('OCP'));
+        const allSchemeSlots = (nodeSpec.pcieSlotSchemes || []).flatMap(s => s.slots);
+        const hasOCP = [...allSchemeSlots, ...(product.ocpSlots || [])].some(s => s.startsWith('OCP'));
         const opts = nicDef.options.filter(o => o.meta.isOCP ? hasOCP : true);
         if (opts.length) sections.push(new ConfigSection({ key: 'nic', name: 'NIC Card', type: 'multi', dependsOn: null, options: opts }));
     }

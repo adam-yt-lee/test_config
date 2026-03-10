@@ -60,8 +60,9 @@ function normalizeFormFactor(ff) {
     if (f.includes('e3.s')) return 'E3.S';
     // 15mm thickness: handles '15mm', '2.5"/15', 'U.3/15', etc.
     if (f.includes('15mm') || /[\/\-]15$/.test(f) || /[\/\-]15\b/.test(f)) return 'U.2-15mm';
-    // 7mm / 9.5mm / U.2 / U.3 variants
-    if (f.includes('9.5mm') || f.includes('u.2') || f.includes('u.3') || f.includes('7mm')) return 'U.2-7mm';
+    // 7mm / 9.5mm / U.2 / U.3 variants — also catches "2.5"/7" and "2.5"/9.5" catalog notation
+    if (f.includes('9.5mm') || f.includes('u.2') || f.includes('u.3') || f.includes('7mm') ||
+        /[\/]7$/.test(f) || /[\/]9\.?5$/.test(f)) return 'U.2-7mm';
     if (f.includes('3.5')) return 'HDD-3.5';
     if (f.includes('2.5')) return 'SSD-2.5';
     return ff.trim();
@@ -189,13 +190,14 @@ function buildProduct(row) {
     let nodes;
     if (isMultiNode) {
         const nodeIds = [...new Set(pcieNodeSpecs.map(n => n.nodeId))];
+        const defaultQtyPerType = Math.floor(nodeCount / nodeIds.length) || 1;
         nodes = nodeIds.map(nodeId => {
             const pcieSchemes  = (pcieNodeSpecs.find(n => n.nodeId === nodeId) || { data: [{ label: '', slots: [] }] }).data;
             const frontSchemes = (frontNodeSpecs.find(n => n.nodeId === nodeId) || { data: [{ label: '', map: {} }] }).data;
             const rearSchemes  = (rearNodeSpecs.find(n  => n.nodeId === nodeId) || { data: [{ label: '', map: {} }] }).data;
             return {
                 nodeId,
-                defaultQty: nodeCount,
+                defaultQty: defaultQtyPerType,
                 pcieSlotSchemes: pcieSchemes,
                 pcieSlots: pcieSchemes[0] ? pcieSchemes[0].slots : [],
                 frontDiskSchemes: frontSchemes,
