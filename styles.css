@@ -830,7 +830,9 @@ body {
 }
 .pcie-slot-header {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
     align-items: center;
     margin-bottom: 12px;
 }
@@ -907,6 +909,45 @@ body {
 }
 .pcie-slot-overflow .pcie-slot-label {
     color: #dc2626;
+}
+
+/* PCIe slot hint text */
+.pcie-slot-hint {
+    font-size: 10px;
+    color: #94a3b8;
+    font-style: italic;
+    margin-left: auto;
+}
+
+/* PCIe drag handle icon */
+.pcie-drag-handle {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: right;
+    cursor: grab;
+    line-height: 1;
+    margin-top: 2px;
+    user-select: none;
+}
+
+/* Dragging state */
+.pcie-slot-item[draggable="true"] { cursor: grab; }
+.pcie-slot-item[draggable="true"]:active { cursor: grabbing; }
+
+/* Compatible drop target highlight */
+.pcie-slot-item.pcie-slot-drop-target {
+    border-color: var(--dark-green);
+    background: #d1fae5;
+    box-shadow: 0 0 0 2px var(--dark-green);
+    transform: scale(1.02);
+    transition: transform 0.1s ease;
+}
+
+/* Incompatible drop target */
+.pcie-slot-item.pcie-slot-drop-invalid {
+    border-color: #fca5a5;
+    background: #fef2f2;
+    box-shadow: 0 0 0 2px #fca5a5;
 }
 
 /* ============================================
@@ -1445,6 +1486,11 @@ body {
     white-space: nowrap;
 }
 
+/* Middle: constrain name column to prevent too-wide empty gap */
+.sic-info {
+    max-width: 220px;
+}
+
 /* Pairing dropdown */
 .sic-pairing {
     display: flex;
@@ -1466,6 +1512,24 @@ body {
     background: #fff;
     max-width: 150px;
     cursor: pointer;
+}
+/* Auto-selected pairing shown as text */
+.sic-pairing-text label {
+    color: #64748b;
+}
+.sic-pairing-value {
+    font-size: 10px;
+    color: var(--dark-green);
+    font-weight: 500;
+    background: var(--pale-green);
+    border: 1px solid var(--light-green);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
 }
 
 /* Right: qty controls + remove */
@@ -1706,18 +1770,19 @@ body {
     font-size: 10px; font-weight: 500; line-height: 1.6;
     background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
 }
-.spec-tag-cores  { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-.spec-tag-mem    { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
-.spec-tag-cache  { background: #ede9fe; color: #7c3aed; border-color: #ddd6fe; }
-.spec-tag-speed  { background: #fef3c7; color: #d97706; border-color: #fde68a; }
-.spec-tag-cap    { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
-.spec-tag-rpm    { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
-.spec-tag-iface  { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
-.spec-tag-ff     { background: #fef9c3; color: #a16207; border-color: #fde047; }
-.spec-tag-pcie   { background: #ffe4e6; color: #be123c; border-color: #fecdd3; }
-.spec-tag-ports  { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
-.spec-tag-conn   { background: #f5f3ff; color: #6d28d9; border-color: #ede9fe; }
-.spec-tag-mode   { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+/* Spec tag colours — 3-tone palette: green / blue / neutral */
+.spec-tag-cores,
+.spec-tag-cap,
+.spec-tag-mode   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.spec-tag-speed,
+.spec-tag-mem,
+.spec-tag-iface,
+.spec-tag-pcie   { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.spec-tag-cache,
+.spec-tag-conn   { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+.spec-tag-ff,
+.spec-tag-rpm,
+.spec-tag-ports  { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
 
 .mopt-qty {
     display: flex;

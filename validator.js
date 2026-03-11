@@ -195,10 +195,45 @@ function _getSASCount(sections) {
 }
 
 // -----------------------------------------------
+// Disk slot count conflict checker
+// -----------------------------------------------
+function checkDiskSlotConflicts(product, nodeSpec, sections) {
+    const warnings = [];
+
+    // Total physical slots
+    const nonM2Total = Object.values(nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
+                       Object.values(nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
+    const m2Total    = Object.values(product.m2Slots || {}).reduce((s, v) => s + v, 0);
+
+    // Count selected disks
+    let selectedNonM2 = 0;
+    let selectedM2    = 0;
+    ['hdd', 'ssd'].forEach(key => {
+        const sec = sections.find(s => s.key === key);
+        if (!sec) return;
+        for (const [optId, qty] of Object.entries(sec.selections)) {
+            const opt = sec.options.find(o => o.id === optId);
+            if (!opt) continue;
+            if (opt.meta && opt.meta.isM2) selectedM2 += qty;
+            else selectedNonM2 += qty;
+        }
+    });
+
+    if (nonM2Total > 0 && selectedNonM2 > nonM2Total) {
+        warnings.push(`硬碟數量 (${selectedNonM2}) 超過槽位數 (${nonM2Total})，請減少選配數量。`);
+    }
+    if (m2Total > 0 && selectedM2 > m2Total) {
+        warnings.push(`M.2 SSD 數量 (${selectedM2}) 超過 M.2 槽位數 (${m2Total})，請減少選配數量。`);
+    }
+
+    return warnings;
+}
+
+// -----------------------------------------------
 // Conflict checker (non-PCIe rules)
 // -----------------------------------------------
-function checkSpecConflicts(product, sections) {
-    const warnings = [];
+function checkSpecConflicts(product, nodeSpec, sections) {
+    const warnings = [...checkDiskSlotConflicts(product, nodeSpec, sections)];
 
     // SAS → RAID or HBA required
     if (_getSASCount(sections) > 0) {
