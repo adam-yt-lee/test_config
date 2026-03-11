@@ -956,6 +956,7 @@ function updateModalOptions() {
 }
 
 // Calculate default fill-to-max qty for newly-selected disk
+// Filters slots by the disk's physical form factor to avoid over-counting
 function calcDiskDefaultQty(nc, section, optId) {
     const opt = section.options.find(o => o.id === optId);
     if (!opt) return 1;
@@ -974,8 +975,28 @@ function calcDiskDefaultQty(nc, section, optId) {
         }
         return Math.max(1, m2Total - m2Used);
     } else {
-        const nonM2Total = Object.values(nc.nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
-                           Object.values(nc.nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
+        // Filter slot keys by form factor so 3.5" HDDs don't count 2.5" slots etc.
+        const ff = ((opt.meta && opt.meta.formFactor) || '').toLowerCase();
+        function slotMatchesDisk(slotKey) {
+            const sk = slotKey.toLowerCase();
+            if (ff.includes('3.5')) return sk.includes('3.5');
+            if (ff.includes('2.5') || ff.includes('u.2') || ff.includes('u.3') ||
+                ff.includes('e1.s') || ff.includes('e3.s'))
+                return sk.includes('2.5') || sk.includes('u.2') || sk.includes('u.3') ||
+                       sk.includes('e1.s') || sk.includes('e3.s');
+            return true; // unknown form factor — don't filter
+        }
+
+        function countSlots(slotMap) {
+            let total = 0;
+            for (const [key, count] of Object.entries(slotMap || {})) {
+                if (slotMatchesDisk(key)) total += count;
+            }
+            return total;
+        }
+
+        const nonM2Total = countSlots(nc.nodeSpec.frontDiskSlots) +
+                           countSlots(nc.nodeSpec.rearDiskSlots);
         if (!nonM2Total) return 1;
         let nonM2Used = 0;
         const hddSec = nc.sections.find(s => s.key === 'hdd');

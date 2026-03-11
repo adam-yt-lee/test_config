@@ -197,30 +197,64 @@ function _getSASCount(sections) {
 // -----------------------------------------------
 // Disk slot count conflict checker
 // -----------------------------------------------
+// Count how many slots in slotMap are compatible with a disk's form factor
+function _countCompatibleSlots(slotMap, ff) {
+    const f = (ff || '').toLowerCase();
+    function matches(slotKey) {
+        const sk = slotKey.toLowerCase();
+        if (f.includes('3.5')) return sk.includes('3.5');
+        if (f.includes('2.5') || f.includes('u.2') || f.includes('u.3') ||
+            f.includes('e1.s') || f.includes('e3.s'))
+            return sk.includes('2.5') || sk.includes('u.2') || sk.includes('u.3') ||
+                   sk.includes('e1.s') || sk.includes('e3.s');
+        return true;
+    }
+    let total = 0;
+    for (const [key, count] of Object.entries(slotMap || {})) {
+        if (matches(key)) total += count;
+    }
+    return total;
+}
+
 function checkDiskSlotConflicts(product, nodeSpec, sections) {
     const warnings = [];
+    const m2Total = Object.values(product.m2Slots || {}).reduce((s, v) => s + v, 0);
 
-    // Total physical slots
-    const nonM2Total = Object.values(nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
-                       Object.values(nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
-    const m2Total    = Object.values(product.m2Slots || {}).reduce((s, v) => s + v, 0);
-
-    // Count selected disks
-    let selectedNonM2 = 0;
-    let selectedM2    = 0;
+    // Group non-M.2 disks by form factor and check per ff-group
+    const ffGroups = {}; // ff -> selected qty
     ['hdd', 'ssd'].forEach(key => {
         const sec = sections.find(s => s.key === key);
         if (!sec) return;
         for (const [optId, qty] of Object.entries(sec.selections)) {
             const opt = sec.options.find(o => o.id === optId);
             if (!opt) continue;
-            if (opt.meta && opt.meta.isM2) selectedM2 += qty;
-            else selectedNonM2 += qty;
+            if (opt.meta && opt.meta.isM2) {
+                // M.2 handled below
+            } else {
+                const ff = (opt.meta && opt.meta.formFactor) || '';
+                ffGroups[ff] = (ffGroups[ff] || 0) + qty;
+            }
         }
     });
 
-    if (nonM2Total > 0 && selectedNonM2 > nonM2Total) {
-        warnings.push(`硬碟數量 (${selectedNonM2}) 超過槽位數 (${nonM2Total})，請減少選配數量。`);
+    // For each form factor group, check against compatible slot count
+    for (const [ff, selectedQty] of Object.entries(ffGroups)) {
+        const compatSlots = _countCompatibleSlots(nodeSpec.frontDiskSlots, ff) +
+                            _countCompatibleSlots(nodeSpec.rearDiskSlots,  ff);
+        if (compatSlots > 0 && selectedQty > compatSlots) {
+            const label = ff ? `${ff} 硬碟` : '硬碟';
+            warnings.push(`${label}數量 (${selectedQty}) 超過相容槽位數 (${compatSlots})，請減少選配數量。`);
+        }
+    }
+
+    // M.2 check
+    let selectedM2 = 0;
+    const ssdSec = sections.find(s => s.key === 'ssd');
+    if (ssdSec) {
+        for (const [optId, qty] of Object.entries(ssdSec.selections)) {
+            const opt = ssdSec.options.find(o => o.id === optId);
+            if (opt && opt.meta && opt.meta.isM2) selectedM2 += qty;
+        }
     }
     if (m2Total > 0 && selectedM2 > m2Total) {
         warnings.push(`M.2 SSD 數量 (${selectedM2}) 超過 M.2 槽位數 (${m2Total})，請減少選配數量。`);
