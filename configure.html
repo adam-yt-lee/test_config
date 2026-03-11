@@ -974,26 +974,16 @@ function calcDiskDefaultQty(nc, section, optId) {
         }
         return Math.max(1, m2Total - m2Used);
     } else {
-        // Count only slots compatible with this disk's form factor
-        const compatTotal = countCompatibleDiskSlots(nc.nodeSpec, opt.meta);
-        if (compatTotal <= 1) return 1;
-        let used = 0;
-        const hddSec = nc.sections.find(s => s.key === 'hdd');
-        if (hddSec) {
-            for (const [id, qty] of Object.entries(hddSec.selections)) {
-                if (section.key === 'hdd' && id === optId) continue;
-                used += qty;
-            }
+        // Count slots and used disks for this disk's specific FF group
+        const ffGroup = getDiskFFGroup(opt.meta);
+        const ffSlots = countSlotsByFFGroup(nc.nodeSpec, ffGroup);
+        if (ffSlots <= 0) {
+            // Fallback: use cross-compatible count if no exact-FF slots found
+            const compatTotal = countCompatibleDiskSlots(nc.nodeSpec, opt.meta);
+            return Math.max(1, compatTotal);
         }
-        const ssdSec = nc.sections.find(s => s.key === 'ssd');
-        if (ssdSec) {
-            for (const [id, qty] of Object.entries(ssdSec.selections)) {
-                if (section.key === 'ssd' && id === optId) continue;
-                const o = ssdSec.options.find(x => x.id === id);
-                if (o && o.meta && !o.meta.isM2) used += qty;
-            }
-        }
-        return Math.max(1, compatTotal - used);
+        const used = countUsedDisksByFFGroup(nc, ffGroup, optId);
+        return Math.max(1, ffSlots - used);
     }
 }
 
@@ -1031,9 +1021,46 @@ function updateModalSelectionHint() {
     if (!currentModalUID) return;
     const section = findSectionByUID(currentModalUID);
     if (!section) return;
-    const count = Object.keys(section.selections).length;
     const hintEl = document.getElementById('modal-selection-hint');
-    if (hintEl) hintEl.textContent = count > 0 ? `已選 ${count} 項` : '';
+    if (!hintEl) return;
+
+    const count = Object.keys(section.selections).length;
+    let hint = count > 0 ? `已選 ${count} 項` : '';
+
+    // For HDD / SSD sections, append per-FF slot availability
+    if (['hdd', 'ssd'].includes(section.key)) {
+        const parsed = parseSectionUID(currentModalUID);
+        const nc = parsed ? activeNodeConfigs[parsed.nodeIdx] : null;
+        if (nc) {
+            const parts = [];
+            // Non-M.2 FF groups
+            const ffGroups = getNodeDiskFFGroups(nc.nodeSpec);
+            const ffLabels = { '3.5': '3.5"', '2.5': '2.5"', 'E1.S': 'E1.S', 'E3.S': 'E3.S' };
+            for (const { ffGroup, slotCount } of ffGroups) {
+                const used = countUsedDisksByFFGroup(nc, ffGroup, null);
+                const label = ffLabels[ffGroup] || ffGroup;
+                parts.push(`${label}: ${slotCount - used}/${slotCount}`);
+            }
+            // M.2 slots
+            const m2Total = Object.values(selectedProduct.m2Slots || {}).reduce((s, v) => s + v, 0);
+            if (m2Total > 0) {
+                let m2Used = 0;
+                const ssdSec = nc.sections.find(s => s.key === 'ssd');
+                if (ssdSec) {
+                    for (const [id, qty] of Object.entries(ssdSec.selections)) {
+                        const o = ssdSec.options.find(x => x.id === id);
+                        if (o && o.meta && o.meta.isM2) m2Used += qty;
+                    }
+                }
+                parts.push(`M.2: ${m2Total - m2Used}/${m2Total}`);
+            }
+            if (parts.length) {
+                hint += (hint ? '　｜　' : '') + '剩餘/總槽位 ' + parts.join(' · ');
+            }
+        }
+    }
+
+    hintEl.textContent = hint;
 }
 
 function closeModal() {

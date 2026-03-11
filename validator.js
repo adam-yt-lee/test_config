@@ -200,18 +200,14 @@ function _getSASCount(sections) {
 function checkDiskSlotConflicts(product, nodeSpec, sections) {
     const warnings = [];
 
-    // Total physical slots
-    const nonM2Total = Object.values(nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
-                       Object.values(nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
-    const m2Total    = Object.values(product.m2Slots || {}).reduce((s, v) => s + v, 0);
+    const m2Total = Object.values(product.m2Slots || {}).reduce((s, v) => s + v, 0);
 
-    // Count 3.5"-only slots for HDD validation
-    const slots35Only = countCompatibleDiskSlots(nodeSpec, { formFactor: '3.5"', formFactorNorm: 'HDD-3.5' });
+    // --- Per-FF-group validation for non-M.2 disks ---
+    const ffGroups = getNodeDiskFFGroups(nodeSpec); // [{ ffGroup, slotCount }]
 
-    // Count selected disks
-    let selectedNonM2 = 0;
-    let selectedM2    = 0;
-    let selected35    = 0; // 3.5" HDDs
+    // Gather selected disk counts per FF group
+    const selectedByFF = {};  // ffGroup → qty
+    let selectedM2 = 0;
     ['hdd', 'ssd'].forEach(key => {
         const sec = sections.find(s => s.key === key);
         if (!sec) return;
@@ -221,25 +217,35 @@ function checkDiskSlotConflicts(product, nodeSpec, sections) {
             if (opt.meta && opt.meta.isM2) {
                 selectedM2 += qty;
             } else {
-                selectedNonM2 += qty;
-                // Check if this is a 3.5" disk
-                const ff = (opt.meta && opt.meta.formFactor || '').toLowerCase();
-                const ffNorm = (opt.meta && opt.meta.formFactorNorm) || '';
-                if (ff.includes('3.5') || ffNorm === 'HDD-3.5') {
-                    selected35 += qty;
-                }
+                const fg = getDiskFFGroup(opt.meta);
+                selectedByFF[fg] = (selectedByFF[fg] || 0) + qty;
             }
         }
     });
 
-    // 3.5" disks can only go in 3.5" bays (no adapter the other direction)
-    if (slots35Only > 0 && selected35 > slots35Only) {
-        warnings.push(`3.5" 硬碟數量 (${selected35}) 超過 3.5" 槽位數 (${slots35Only})，請減少選配數量。`);
+    // FF-group display labels
+    const ffLabels = { '3.5': '3.5"', '2.5': '2.5"', 'E1.S': 'E1.S', 'E3.S': 'E3.S', 'unknown': '' };
+
+    // Validate each FF group independently
+    for (const { ffGroup, slotCount } of ffGroups) {
+        const selected = selectedByFF[ffGroup] || 0;
+        if (selected > slotCount) {
+            const label = ffLabels[ffGroup] || ffGroup;
+            warnings.push(`${label} 硬碟數量 (${selected}) 超過 ${label} 槽位數 (${slotCount})，請減少選配數量。`);
+        }
     }
-    // Overall non-M.2 check (2.5" can use 3.5" bays with adapter)
-    if (nonM2Total > 0 && selectedNonM2 > nonM2Total) {
-        warnings.push(`硬碟數量 (${selectedNonM2}) 超過槽位數 (${nonM2Total})，請減少選配數量。`);
+
+    // Check disks with unknown FF that don't match any slot group
+    if (selectedByFF['unknown'] && selectedByFF['unknown'] > 0) {
+        const nonM2Total = Object.values(nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
+                           Object.values(nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
+        const totalSelected = Object.values(selectedByFF).reduce((s, v) => s + v, 0);
+        if (totalSelected > nonM2Total) {
+            warnings.push(`硬碟數量 (${totalSelected}) 超過總槽位數 (${nonM2Total})，請減少選配數量。`);
+        }
     }
+
+    // M.2 check
     if (m2Total > 0 && selectedM2 > m2Total) {
         warnings.push(`M.2 SSD 數量 (${selectedM2}) 超過 M.2 槽位數 (${m2Total})，請減少選配數量。`);
     }

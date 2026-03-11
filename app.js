@@ -43,6 +43,84 @@ function getSSDFormFactorsForSlot(slotType) {
 }
 
 // ============================================
+// Disk Form-Factor grouping
+// Returns a canonical FF group string for a disk option's meta.
+// Groups: '3.5', '2.5', 'E1.S', 'E3.S', 'unknown'
+// ============================================
+function getDiskFFGroup(diskMeta) {
+    const ff = diskMeta && diskMeta.formFactor ? diskMeta.formFactor.toLowerCase() : '';
+    const ffNorm = diskMeta && diskMeta.formFactorNorm ? diskMeta.formFactorNorm : '';
+    if (ff.includes('3.5') || ffNorm === 'HDD-3.5') return '3.5';
+    if (ff.includes('e1.s') || ffNorm === 'E1.S') return 'E1.S';
+    if (ff.includes('e3.s') || ffNorm === 'E3.S') return 'E3.S';
+    if (ff.includes('2.5') || ff.includes('u.2') || ff.includes('u.3') ||
+        ff.includes('7mm') || ff.includes('9.5mm') || ff.includes('15mm') ||
+        ffNorm === 'SSD-2.5' || (ffNorm && ffNorm.startsWith('U.2'))) return '2.5';
+    return 'unknown';
+}
+
+// ============================================
+// Count non-M.2 slots belonging to a specific FF group.
+// Slot keys are matched by substring to their FF group.
+// ============================================
+function countSlotsByFFGroup(nodeSpec, ffGroup) {
+    const front = nodeSpec.frontDiskSlots || {};
+    const rear  = nodeSpec.rearDiskSlots  || {};
+    const all   = { ...front, ...rear };
+    let filter;
+    if (ffGroup === '3.5') {
+        filter = k => k.toLowerCase().includes('3.5');
+    } else if (ffGroup === '2.5') {
+        filter = k => { const kl = k.toLowerCase(); return kl.includes('2.5') && !kl.includes('3.5'); };
+    } else if (ffGroup === 'E1.S') {
+        filter = k => k.toLowerCase().includes('e1.s');
+    } else if (ffGroup === 'E3.S') {
+        filter = k => k.toLowerCase().includes('e3.s');
+    } else {
+        filter = () => true;
+    }
+    let total = 0;
+    for (const [key, count] of Object.entries(all)) {
+        if (filter(key)) total += count;
+    }
+    return total;
+}
+
+// ============================================
+// Get all FF groups present in a nodeSpec's disk slots.
+// Returns an array of { ffGroup, slotCount } objects.
+// ============================================
+function getNodeDiskFFGroups(nodeSpec) {
+    const groups = [];
+    const ffList = ['3.5', '2.5', 'E1.S', 'E3.S'];
+    for (const fg of ffList) {
+        const cnt = countSlotsByFFGroup(nodeSpec, fg);
+        if (cnt > 0) groups.push({ ffGroup: fg, slotCount: cnt });
+    }
+    return groups;
+}
+
+// ============================================
+// Count selected (used) non-M.2 disks for a specific FF group.
+// Iterates hdd + ssd sections and filters by getDiskFFGroup().
+// excludeOptId: optionally skip one option (for default-qty calc).
+// ============================================
+function countUsedDisksByFFGroup(nc, ffGroup, excludeOptId) {
+    let used = 0;
+    ['hdd', 'ssd'].forEach(key => {
+        const sec = nc.sections.find(s => s.key === key);
+        if (!sec) return;
+        for (const [optId, qty] of Object.entries(sec.selections)) {
+            if (excludeOptId && optId === excludeOptId) continue;
+            const opt = sec.options.find(o => o.id === optId);
+            if (!opt || (opt.meta && opt.meta.isM2)) continue;
+            if (getDiskFFGroup(opt.meta) === ffGroup) used += qty;
+        }
+    });
+    return used;
+}
+
+// ============================================
 // Count compatible non-M.2 disk slots for a given disk option.
 // Uses the disk's form factor to determine which bay keys are valid.
 //
