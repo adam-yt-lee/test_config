@@ -165,6 +165,107 @@ function getUrlParams() {
 }
 
 // ============================================
+// PCIe Drag-and-Drop State
+// ============================================
+let pcieDragInfo = null; // { nodeIdx, slotIdx, card }
+
+// Compute a hash of all card selections across sections to detect changes
+function _selectionsHash(nc) {
+    return JSON.stringify(nc.sections.map(s => [s.key, s.selections]));
+}
+
+// Lazily build / retrieve the mutable slot state for a node
+function getPcieSlotState(nc) {
+    const hash = _selectionsHash(nc);
+    if (!nc.pcieSlotState || nc._pcieSlotHash !== hash) {
+        const result = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections, nc.activePcieSchemeIdx);
+        nc.pcieSlotState = result.slotStatus.map(s => ({ ...s })); // shallow clone
+        nc._pcieSlotHash = hash;
+    }
+    return nc.pcieSlotState;
+}
+
+function pcieDragStart(event, nodeIdx, slotIdx) {
+    const nc = activeNodeConfigs[nodeIdx];
+    if (!nc) return;
+    const state = nc.pcieSlotState;
+    const slot  = state && state[slotIdx];
+    if (!slot || !slot.assigned) { event.preventDefault(); return; }
+    pcieDragInfo = { nodeIdx, slotIdx, iface: slot.assigned.iface };
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(slotIdx));
+}
+
+function pcieDragOver(event, nodeIdx, targetSlotIdx) {
+    if (!pcieDragInfo || pcieDragInfo.nodeIdx !== nodeIdx) return;
+    const nc = activeNodeConfigs[nodeIdx];
+    const state = nc.pcieSlotState;
+    const targetSlot = state && state[targetSlotIdx];
+    if (!targetSlot) return;
+    // Prevent drop onto same slot
+    if (targetSlotIdx === pcieDragInfo.slotIdx) return;
+    // Validate card is compatible with target slot
+    const accepts = SLOT_ACCEPTS[targetSlot.type] || [];
+    if (accepts.includes(pcieDragInfo.iface)) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }
+}
+
+function pcieDragEnter(event, nodeIdx, targetSlotIdx) {
+    if (!pcieDragInfo || pcieDragInfo.nodeIdx !== nodeIdx) return;
+    const nc = activeNodeConfigs[nodeIdx];
+    const state = nc.pcieSlotState;
+    const targetSlot = state && state[targetSlotIdx];
+    if (!targetSlot) return;
+    if (targetSlotIdx === pcieDragInfo.slotIdx) return;
+    const accepts = SLOT_ACCEPTS[targetSlot.type] || [];
+    if (accepts.includes(pcieDragInfo.iface)) {
+        event.currentTarget.classList.add('pcie-slot-drop-target');
+    } else {
+        event.currentTarget.classList.add('pcie-slot-drop-invalid');
+    }
+}
+
+function pcieDragLeave(event) {
+    event.currentTarget.classList.remove('pcie-slot-drop-target', 'pcie-slot-drop-invalid');
+}
+
+function pcieDrop(event, nodeIdx, targetSlotIdx) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('pcie-slot-drop-target', 'pcie-slot-drop-invalid');
+    if (!pcieDragInfo || pcieDragInfo.nodeIdx !== nodeIdx) return;
+    const nc = activeNodeConfigs[nodeIdx];
+    const state = nc.pcieSlotState;
+    const srcIdx = pcieDragInfo.slotIdx;
+    pcieDragInfo = null;
+    if (srcIdx === targetSlotIdx) return;
+    const srcSlot    = state[srcIdx];
+    const targetSlot = state[targetSlotIdx];
+    if (!srcSlot || !srcSlot.assigned) return;
+    const accepts = SLOT_ACCEPTS[targetSlot.type] || [];
+    if (!accepts.includes(srcSlot.assigned.iface)) return;
+    // Swap cards: check if target card fits into source slot
+    const movedCard  = srcSlot.assigned;
+    const swapCard   = targetSlot.assigned;
+    targetSlot.assigned = movedCard;
+    if (swapCard) {
+        const srcAccepts = SLOT_ACCEPTS[srcSlot.type] || [];
+        srcSlot.assigned = srcAccepts.includes(swapCard.iface) ? swapCard : null;
+    } else {
+        srcSlot.assigned = null;
+    }
+    renderPcieSlotPanel();
+}
+
+function pcieDragEnd() {
+    pcieDragInfo = null;
+    // Clean up any lingering highlight classes
+    document.querySelectorAll('.pcie-slot-drop-target, .pcie-slot-drop-invalid')
+            .forEach(el => el.classList.remove('pcie-slot-drop-target', 'pcie-slot-drop-invalid'));
+}
+
+// ============================================
 // Modal State
 // ============================================
 let currentModalUID = null;
@@ -531,7 +632,7 @@ function renderItemCard({ section, opt, qty, uid }) {
     const sectionColor = typeColors[section.key] || '#f1f5f9';
     const optIdEsc = opt.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-    // Pairing dropdown for RAID/HBA/m2raid/Transceiver
+    // Pairing for RAID/HBA/m2raid/Transceiver — auto-select if only one option
     let pairingHTML = '';
     const parsed = parseSectionUID(uid);
     const nc = parsed ? activeNodeConfigs[parsed.nodeIdx] : null;
@@ -539,16 +640,30 @@ function renderItemCard({ section, opt, qty, uid }) {
         const pairingOpts = getPairingOptions(nc, section.key);
         if (pairingOpts.length > 0) {
             const pairingKey = uid + '|' + opt.id;
-            const cur = nc.diskPairings && nc.diskPairings[pairingKey];
-            const curVal = cur ? (cur.diskSectionKey + ':' + cur.diskOptId) : '';
+            let cur = nc.diskPairings && nc.diskPairings[pairingKey];
+            let curVal = cur ? (cur.diskSectionKey + ':' + cur.diskOptId) : '';
             const pairingLabel = section.key === 'transceiver' ? '搭配 NIC:' : '搭配磁碟:';
-            pairingHTML = `<div class="sic-pairing">
-                <label>${pairingLabel}</label>
-                <select onchange="setDiskPairing('${uid}','${optIdEsc}',this.value)">
-                    <option value="">-- 請選擇 --</option>
-                    ${pairingOpts.map(p => `<option value="${p.value}"${curVal === p.value ? ' selected' : ''}>${p.label}</option>`).join('')}
-                </select>
-            </div>`;
+            // Auto-select when only one disk option exists
+            if (pairingOpts.length === 1 && !curVal) {
+                curVal = pairingOpts[0].value;
+                setDiskPairing(uid, opt.id, curVal);
+                cur = nc.diskPairings && nc.diskPairings[pairingKey];
+            }
+            if (pairingOpts.length === 1) {
+                // Single option — show as plain text, no dropdown
+                pairingHTML = `<div class="sic-pairing sic-pairing-text">
+                    <label>${pairingLabel}</label>
+                    <span class="sic-pairing-value">${pairingOpts[0].label}</span>
+                </div>`;
+            } else {
+                pairingHTML = `<div class="sic-pairing">
+                    <label>${pairingLabel}</label>
+                    <select onchange="setDiskPairing('${uid}','${optIdEsc}',this.value)">
+                        <option value="">-- 請選擇 --</option>
+                        ${pairingOpts.map(p => `<option value="${p.value}"${curVal === p.value ? ' selected' : ''}>${p.label}</option>`).join('')}
+                    </select>
+                </div>`;
+            }
         }
     }
 
@@ -840,10 +955,57 @@ function updateModalOptions() {
     updateModalSelectionHint();
 }
 
+// Calculate default fill-to-max qty for newly-selected disk
+function calcDiskDefaultQty(nc, section, optId) {
+    const opt = section.options.find(o => o.id === optId);
+    if (!opt) return 1;
+    const isM2 = opt.meta && opt.meta.isM2;
+    if (isM2) {
+        const m2Total = Object.values(selectedProduct.m2Slots || {}).reduce((s, v) => s + v, 0);
+        if (!m2Total) return 1;
+        let m2Used = 0;
+        const ssdSec = nc.sections.find(s => s.key === 'ssd');
+        if (ssdSec) {
+            for (const [id, qty] of Object.entries(ssdSec.selections)) {
+                if (id === optId) continue;
+                const o = ssdSec.options.find(x => x.id === id);
+                if (o && o.meta && o.meta.isM2) m2Used += qty;
+            }
+        }
+        return Math.max(1, m2Total - m2Used);
+    } else {
+        const nonM2Total = Object.values(nc.nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
+                           Object.values(nc.nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
+        if (!nonM2Total) return 1;
+        let nonM2Used = 0;
+        const hddSec = nc.sections.find(s => s.key === 'hdd');
+        if (hddSec) for (const qty of Object.values(hddSec.selections)) nonM2Used += qty;
+        const ssdSec = nc.sections.find(s => s.key === 'ssd');
+        if (ssdSec) {
+            for (const [id, qty] of Object.entries(ssdSec.selections)) {
+                if (section.key === 'ssd' && id === optId) continue;
+                const o = ssdSec.options.find(x => x.id === id);
+                if (o && o.meta && !o.meta.isM2) nonM2Used += qty;
+            }
+        }
+        return Math.max(1, nonM2Total - nonM2Used);
+    }
+}
+
 function modalToggleOption(uid, optId) {
     const section = findSectionByUID(uid);
     if (!section) return;
+    const wasSelected = section.selections[optId] !== undefined;
     section.select(optId);
+    // When first selecting a disk, default quantity to fill remaining slots
+    if (!wasSelected && ['hdd', 'ssd'].includes(section.key)) {
+        const parsed2 = parseSectionUID(uid);
+        const nc2 = parsed2 ? activeNodeConfigs[parsed2.nodeIdx] : null;
+        if (nc2 && section.selections[optId] !== undefined) {
+            const maxQty = calcDiskDefaultQty(nc2, section, optId);
+            if (maxQty > 1) section.setQty(optId, maxQty);
+        }
+    }
     updateModalOptions();
     const parsed = parseSectionUID(uid);
     if (parsed) refreshNodeUI(parsed.nodeIdx);
@@ -933,23 +1095,26 @@ function setNodeQty(nodeIdx, value) {
 }
 
 // ============================================
-// PCIe slot panel
+// PCIe slot panel (with drag-and-drop)
 // ============================================
 function renderPcieSlotPanel() {
     const panel = document.getElementById('pcie-slot-panel');
     if (!panel || !selectedProduct) return;
 
     let allWarnings = [];
-    let allSlots    = [];
     let totalCards  = 0;
     let totalSlots  = 0;
+    // Collect per-node slot states
+    const nodeSlotData = [];
 
     activeNodeConfigs.forEach(nc => {
+        const state = getPcieSlotState(nc);
+        // Re-derive warnings from current state
         const result = validatePcieSlots(selectedProduct, nc.nodeSpec, nc.sections, nc.activePcieSchemeIdx);
         allWarnings = allWarnings.concat(result.warnings);
-        allSlots = allSlots.concat(result.slotStatus.map(s => ({ ...s, nodeLabel: nc.nodeId ? `Node ${nc.nodeId}` : '' })));
-        totalCards += result.totalCards;
-        totalSlots += result.totalSlots;
+        totalCards += state.filter(s => s.assigned).length;
+        totalSlots += state.length;
+        nodeSlotData.push({ nc, state });
     });
 
     const hasWarnings = allWarnings.length > 0;
@@ -957,6 +1122,7 @@ function renderPcieSlotPanel() {
         <div class="pcie-slot-header">
             <span class="pcie-slot-title">PCIe Slot Usage</span>
             <span class="pcie-slot-count">${totalCards} / ${totalSlots} slots used</span>
+            <span class="pcie-slot-hint">拖曳可調整 PCIe 卡位置</span>
         </div>`;
     if (hasWarnings) {
         html += `<div class="pcie-warnings">`;
@@ -968,13 +1134,25 @@ function renderPcieSlotPanel() {
         html += `</div>`;
     }
     html += `<div class="pcie-slot-grid">`;
-    allSlots.forEach(slot => {
-        const occupied = slot.assigned !== null;
-        const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
-        html += `<div class="pcie-slot-item ${statusClass}">
-            <div class="pcie-slot-type">${slot.type}${slot.nodeLabel ? ' [' + slot.nodeLabel + ']' : ''}</div>
-            <div class="pcie-slot-label">${occupied ? slot.assigned.name : 'Empty'}</div>
-        </div>`;
+    nodeSlotData.forEach(({ nc, state }) => {
+        const nodeLabel = nc.nodeId ? ` [Node ${nc.nodeId}]` : '';
+        state.forEach((slot, idx) => {
+            const occupied   = slot.assigned !== null;
+            const statusClass = occupied ? 'pcie-slot-occupied' : 'pcie-slot-empty';
+            const draggable   = occupied ? 'draggable="true"' : '';
+            const dragHandlers = `
+                ondragstart="pcieDragStart(event,${nc.nodeIdx},${idx})"
+                ondragend="pcieDragEnd()"
+                ondragover="pcieDragOver(event,${nc.nodeIdx},${idx})"
+                ondragenter="pcieDragEnter(event,${nc.nodeIdx},${idx})"
+                ondragleave="pcieDragLeave(event)"
+                ondrop="pcieDrop(event,${nc.nodeIdx},${idx})"`;
+            html += `<div class="pcie-slot-item ${statusClass}" ${draggable} ${dragHandlers}>
+                <div class="pcie-slot-type">${slot.type}${nodeLabel}</div>
+                <div class="pcie-slot-label">${occupied ? slot.assigned.name : 'Empty'}</div>
+                ${occupied ? '<div class="pcie-drag-handle">⠿</div>' : ''}
+            </div>`;
+        });
     });
     html += `</div></div>`;
     panel.innerHTML = html;
@@ -988,7 +1166,7 @@ function renderConflictWarnings() {
     if (!panel) return;
     let allWarnings = [];
     activeNodeConfigs.forEach(nc => {
-        const w = checkSpecConflicts(selectedProduct, nc.sections);
+        const w = checkSpecConflicts(selectedProduct, nc.nodeSpec, nc.sections);
         allWarnings = allWarnings.concat(w);
     });
     if (!allWarnings.length) { panel.innerHTML = ''; return; }
