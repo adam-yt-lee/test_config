@@ -205,20 +205,38 @@ function checkDiskSlotConflicts(product, nodeSpec, sections) {
                        Object.values(nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
     const m2Total    = Object.values(product.m2Slots || {}).reduce((s, v) => s + v, 0);
 
+    // Count 3.5"-only slots for HDD validation
+    const slots35Only = countCompatibleDiskSlots(nodeSpec, { formFactor: '3.5"', formFactorNorm: 'HDD-3.5' });
+
     // Count selected disks
     let selectedNonM2 = 0;
     let selectedM2    = 0;
+    let selected35    = 0; // 3.5" HDDs
     ['hdd', 'ssd'].forEach(key => {
         const sec = sections.find(s => s.key === key);
         if (!sec) return;
         for (const [optId, qty] of Object.entries(sec.selections)) {
             const opt = sec.options.find(o => o.id === optId);
             if (!opt) continue;
-            if (opt.meta && opt.meta.isM2) selectedM2 += qty;
-            else selectedNonM2 += qty;
+            if (opt.meta && opt.meta.isM2) {
+                selectedM2 += qty;
+            } else {
+                selectedNonM2 += qty;
+                // Check if this is a 3.5" disk
+                const ff = (opt.meta && opt.meta.formFactor || '').toLowerCase();
+                const ffNorm = (opt.meta && opt.meta.formFactorNorm) || '';
+                if (ff.includes('3.5') || ffNorm === 'HDD-3.5') {
+                    selected35 += qty;
+                }
+            }
         }
     });
 
+    // 3.5" disks can only go in 3.5" bays (no adapter the other direction)
+    if (slots35Only > 0 && selected35 > slots35Only) {
+        warnings.push(`3.5" 硬碟數量 (${selected35}) 超過 3.5" 槽位數 (${slots35Only})，請減少選配數量。`);
+    }
+    // Overall non-M.2 check (2.5" can use 3.5" bays with adapter)
     if (nonM2Total > 0 && selectedNonM2 > nonM2Total) {
         warnings.push(`硬碟數量 (${selectedNonM2}) 超過槽位數 (${nonM2Total})，請減少選配數量。`);
     }

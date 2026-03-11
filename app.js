@@ -43,6 +43,56 @@ function getSSDFormFactorsForSlot(slotType) {
 }
 
 // ============================================
+// Count compatible non-M.2 disk slots for a given disk option.
+// Uses the disk's form factor to determine which bay keys are valid.
+//
+// Disk form factor → compatible bays:
+//   3.5" (HDD-3.5)           → only slots whose key contains "3.5"
+//   2.5"/U.2/U.3 (SSD-2.5, U.2-*) → slots whose key contains "2.5" or "3.5" (adapter)
+//   E1.S / E3.S (EDSFF)     → only slots whose key contains "e1.s" / "e3.s"
+//   Unknown                  → all slots (fallback)
+// ============================================
+function countCompatibleDiskSlots(nodeSpec, diskMeta) {
+    const front = nodeSpec.frontDiskSlots || {};
+    const rear  = nodeSpec.rearDiskSlots  || {};
+    const all   = { ...front, ...rear };
+
+    const ff = diskMeta && diskMeta.formFactor
+        ? diskMeta.formFactor.toLowerCase()
+        : (diskMeta && diskMeta.formFactorNorm ? diskMeta.formFactorNorm.toLowerCase() : '');
+    const ffNorm = diskMeta && diskMeta.formFactorNorm
+        ? diskMeta.formFactorNorm : '';
+
+    // Determine which slot keys are compatible
+    let filter;
+    if (ff.includes('3.5') || ffNorm === 'HDD-3.5') {
+        // 3.5" drives only fit 3.5" bays
+        filter = k => k.toLowerCase().includes('3.5');
+    } else if (ff.includes('e1.s') || ffNorm === 'E1.S') {
+        filter = k => k.toLowerCase().includes('e1.s');
+    } else if (ff.includes('e3.s') || ffNorm === 'E3.S') {
+        filter = k => k.toLowerCase().includes('e3.s');
+    } else if (ff.includes('2.5') || ff.includes('u.2') || ff.includes('u.3') ||
+               ff.includes('7mm') || ff.includes('9.5mm') || ff.includes('15mm') ||
+               ffNorm === 'SSD-2.5' || (ffNorm && ffNorm.startsWith('U.2'))) {
+        // 2.5" / U.2 / U.3 drives fit both 2.5" and 3.5" bays (with adapter)
+        filter = k => { const kl = k.toLowerCase(); return kl.includes('2.5') || kl.includes('3.5'); };
+    } else if (ff) {
+        // Unknown but has a form factor string — try substring match, fallback to all
+        filter = k => k.toLowerCase().includes(ff) || true;
+    } else {
+        // Completely unknown — count all slots as fallback
+        filter = () => true;
+    }
+
+    let total = 0;
+    for (const [key, count] of Object.entries(all)) {
+        if (filter(key)) total += count;
+    }
+    return total || 1; // At least 1 to avoid 0
+}
+
+// ============================================
 // ConfigSection class
 // ============================================
 class ConfigSection {

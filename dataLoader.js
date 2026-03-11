@@ -284,13 +284,17 @@ function parseGPURows(rows) {
 }
 
 function parseHDDRows(rows) {
-    return rows.slice(1).filter(r => r[5]).map(r => ({
-        id: r[5].trim(),
-        name: `${r[0].trim()} ${r[6]}TB ${r[4].trim()} ${(r[7]||'').trim()}`,
-        desc: `${r[4].trim()} | ${(r[7]||'').trim()} | ${r[6]} TB`,
-        brand: r[0].trim(), subGroup: r[4].trim(), pcieInterface: '',
-        meta: { density: r[6].toString().trim(), formFactor: (r[7]||'').trim(), interface: r[4].trim() }
-    }));
+    return rows.slice(1).filter(r => r[5]).map(r => {
+        const ff = (r[7]||'').trim();
+        const ffNorm = normalizeFormFactor(ff);
+        return {
+            id: r[5].trim(),
+            name: `${r[0].trim()} ${r[6]}TB ${r[4].trim()} ${ff}`,
+            desc: `${r[4].trim()} | ${ff} | ${r[6]} TB`,
+            brand: r[0].trim(), subGroup: r[4].trim(), pcieInterface: '',
+            meta: { density: r[6].toString().trim(), formFactor: ff, formFactorNorm: ffNorm, interface: r[4].trim() }
+        };
+    });
 }
 
 function parseSSDRows(rows) {
@@ -487,12 +491,13 @@ function parseConsolidatedCSV(rows) {
                 const ff    = g(r, IDX.ff);
                 const iface = g(r, IDX.iface);
                 const rpm   = parseInt(g(r, IDX.hddRpm)) || 0;
+                const ffNorm = normalizeFormFactor(ff);
                 out.hdd.push({
                     id: mpn, brand, subGroup: subGrp, pcieInterface: '',
                     name: optName || `${brand} ${capTB}TB ${subGrp} ${ff}`,
                     desc: `${iface} | ${ff} | ${capTB} TB` + (rpm ? ` | ${rpm} RPM` : ''),
-                    meta: { density: capTB.toString(), formFactor: ff, interface: iface,
-                            isSAS: iface.toUpperCase() === 'SAS', rpm },
+                    meta: { density: capTB.toString(), formFactor: ff, formFactorNorm: ffNorm,
+                            interface: iface, isSAS: iface.toUpperCase() === 'SAS', rpm },
                 });
                 break;
             }

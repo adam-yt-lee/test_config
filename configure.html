@@ -974,21 +974,26 @@ function calcDiskDefaultQty(nc, section, optId) {
         }
         return Math.max(1, m2Total - m2Used);
     } else {
-        const nonM2Total = Object.values(nc.nodeSpec.frontDiskSlots || {}).reduce((s, v) => s + v, 0) +
-                           Object.values(nc.nodeSpec.rearDiskSlots  || {}).reduce((s, v) => s + v, 0);
-        if (!nonM2Total) return 1;
-        let nonM2Used = 0;
+        // Count only slots compatible with this disk's form factor
+        const compatTotal = countCompatibleDiskSlots(nc.nodeSpec, opt.meta);
+        if (compatTotal <= 1) return 1;
+        let used = 0;
         const hddSec = nc.sections.find(s => s.key === 'hdd');
-        if (hddSec) for (const qty of Object.values(hddSec.selections)) nonM2Used += qty;
+        if (hddSec) {
+            for (const [id, qty] of Object.entries(hddSec.selections)) {
+                if (section.key === 'hdd' && id === optId) continue;
+                used += qty;
+            }
+        }
         const ssdSec = nc.sections.find(s => s.key === 'ssd');
         if (ssdSec) {
             for (const [id, qty] of Object.entries(ssdSec.selections)) {
                 if (section.key === 'ssd' && id === optId) continue;
                 const o = ssdSec.options.find(x => x.id === id);
-                if (o && o.meta && !o.meta.isM2) nonM2Used += qty;
+                if (o && o.meta && !o.meta.isM2) used += qty;
             }
         }
-        return Math.max(1, nonM2Total - nonM2Used);
+        return Math.max(1, compatTotal - used);
     }
 }
 
