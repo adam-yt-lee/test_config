@@ -203,10 +203,12 @@ function _countCompatibleSlots(slotMap, ff) {
     function matches(slotKey) {
         const sk = slotKey.toLowerCase();
         if (f.includes('3.5')) return sk.includes('3.5');
-        if (f.includes('2.5') || f.includes('u.2') || f.includes('u.3') ||
-            f.includes('e1.s') || f.includes('e3.s'))
-            return sk.includes('2.5') || sk.includes('u.2') || sk.includes('u.3') ||
-                   sk.includes('e1.s') || sk.includes('e3.s');
+        // 2.5" / U.2 / U.3 can fit in both 2.5" and 3.5" bays (adapter rule)
+        if (f.includes('2.5') || f.includes('u.2') || f.includes('u.3'))
+            return sk.includes('2.5') || sk.includes('u.2') || sk.includes('u.3') || sk.includes('3.5');
+        // EDSFF (E1.S / E3.S) — dedicated slots only
+        if (f.includes('e1.s') || f.includes('e3.s'))
+            return sk.includes('e1.s') || sk.includes('e3.s');
         return true;
     }
     let total = 0;
